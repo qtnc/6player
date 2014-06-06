@@ -1,0 +1,59 @@
+Changelog 6player
+
+Version 3.0.0
+Première version de cet historique; les évolutions de 6player anciennement QCPlayer 1.x et 2.x n'ont jamais été documentées. Ces versions n'ont jamais été diffusées publiquement.
+
+Version 3.0.1 - février 2012
+- Ajouté: possibilité de choisir le dossier d'enregistrement et la qualité/compression pour l'export de playlist entière
+- Ajouté: support microphone
+- Supprimé: support format ZIP: trop instable
+- Corrigé: crash à l'extraction de certains CD audio lors d'exports groupés en MP3 ou OGG
+
+Version 3.1 - août 2012
+- Ajouté: annuaire de radios
+- Ajouté: lecture et mise à jour automatique des titres de flux shoutcast/icecast
+- Ajouté: possibilité d'affecter les effets seulement à la musique ou seulement au micro
+- Ajouté: mode lecture inversée
+- Ajouté: mode intro (comme sur les lecteurs CD des années 90!)
+- Ajouté: radiodiffusion via shoutcast/icecast
+- Ajouté: quand le lecteur est démarré sans fichier à ouvrir, la session précédente est restaurée
+- Ajouté: raccourcis du pavé numérique
+- Ajouté: support formats de playlist basés XML: XSPF, ASX, WPL
+
+Version 3.2 (septembre 2012)
+- Mise à jour de la liste des radios
+- 1ère partie de la refonte du système de plugins
+- Nouveau plugin FFMPEG permettant de lire l'audio contenu dans les fichiers vidéo les plus courants: avi, mov, m4v, mkv, flv, ... avec les codecs les plus courants (MPEG4, VPX/WebM, H264, theora, ...) http://ffmpeg.sourceforge.org/
+- Nouveau plugin permettant de lire à l'intérieur des archives zip sans les décompresser (ne marche pas pour certains formats spéciaux et pas du tout pour la vidéo)
+- Suppression du plugin in-mikmod trop buggé et trop ancien qui ne fonctionnait en fait pas
+- Support expérimental des input plugins winamp
+
+Version 3.2.1 (septembre 2012)
+- Réintroduction du plugin in-mikmod
+- Ajout du codec opus avec le plugin bassopus
+- Meilleure gestion des connexions/déconnexions de périphériques
+- Fenêtre playlist, nouvelle fonctionnalité: l'option supprimer tout ne supprime que les éléments affichés par le filtre en cours; nouvelle option rogner pour supprimer tout ce qui n'est pas affiché par le filtre en cours (option inverse)
+
+Version 3.3 (décembre 2013)
+Suppression d'anciens plugins buggés
+Conversion d'anciens plugins buggés en plugins BASS: bass_sndfile, bass_ffmpeg
+Suppression du webcasting et du support micro, trop instable; en espérant que ça pourra revenir dans la version 4.0
+Mise à jour du titre de la fenêtre pendant la lecture des flux, bug corrigé
+Ajouté contrôle du lecteur via le web (port 88); fonctionnalité alpha/expérimentale, très incomplète
+
+Version 4.0 alpha 1 (janvier 2013)
+Refonte totale du système de plugins et portage des plugins actuels
+Ajout de nouveaux plugins bass. Maintenant bientôt 100 formats supportés !
+Enregistrer les tags modifiés dans les fichiers quand cela est possible. Pour le moment, MP3, MP4, AAC et OGG sont supportés
+Retour de la radiodiffusion et du support micro avec plein de nouvelles options, dont le mode jingle (avis aux câleurs!)
+Aperçu dans la liste playlist avec espace/maj+espace et dans la boîte de dialogue ouvrir
+Possibilité de définir des périphériques différents pour la sortie normale, le retour micro, et les aperçus 
+Nouveau panneau MIDI avec affichage des paroles de chanson en temps réel
+Débogage définitif du plugin de lecture dans les archives sans décompresser
+Suppression définitive du plugin mikmod car obsolète; remplacé par modplug
+Plus d'options et de personnalisation
+
+Possibles développements futures pour la 4.0 et plus encore
+Développement de l'interface de contrôle par le web
+Scripting en lua 
+

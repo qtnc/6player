@@ -1,0 +1,15 @@
+LIBRARY basswinamp.dll
+EXPORTS
+BASS_WINAMP_AboutPlugin@4
+BASS_WINAMP_ConfigPlugin@4
+BASS_WINAMP_FindPlugins@8
+BASS_WINAMP_GetExtentions@4
+BASS_WINAMP_GetFileInfo@12
+BASS_WINAMP_GetIsSeekable@4
+BASS_WINAMP_GetName@4
+BASS_WINAMP_GetUsesOutput@4
+BASS_WINAMP_GetVersion@4
+BASS_WINAMP_InfoDlg@4
+BASS_WINAMP_LoadPlugin@4
+BASS_WINAMP_StreamCreate@8
+BASS_WINAMP_UnloadPlugin@4
