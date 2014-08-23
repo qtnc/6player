@@ -78,10 +78,12 @@ const TCHAR szClassName[ ] = TEXT("QCPLAYER2");
 HINSTANCE hinst;
 HWND win=NULL, lbl=NULL, playlistdlg=NULL, mididlg=NULL, radiodlg = NULL, btnPlay=NULL, btnPrev=NULL, btnNext=NULL;
 HMENU lect, exportmenu, effectsMenu;
+HACCEL haccel;
 tstring filter;
 int filterIndex = 0;
 
 // Functions
+void executeCustomCommand (int nCmd);
 void TransferStdinToSocket (int port) ;
 DWORD parseArgs (const TCHAR** argv, int argc, bool startup) ;
 void fillOutDevices (unordered_map<int,string>* i1, unordered_map<string,int>* i2) ;
@@ -234,8 +236,6 @@ else if (b>c) return c;
 else return b;
 }
 
-// WinAPI specific code
-
 inline bool IsQCSpecialMessage (const MSG& msg) {
 if (msg.message!=WM_KEYDOWN && msg.message!=WM_KEYUP && msg.message!=WM_CHAR) return true;
 return (msg.wParam==VK_TAB || msg.wParam==VK_SPACE || msg.wParam==VK_RETURN) ;
@@ -327,7 +327,7 @@ RegisterHotKey(win, IDM_PREV, 0, 0xB1);
     ShowWindow (win, SW_SHOW); //nFu	nsterStil);
 SetFocus(lbl);
 SetTimer(win, 1, 200, NULL);
-HACCEL haccel = LoadAccelerators(hThisInstance, TEXT("accel"));
+haccel = LoadAccelerators(hThisInstance, TEXT("accel"));
 
 SetCurrentDirectory(appdir.c_str());
 { 
@@ -1189,7 +1189,7 @@ case IDCANCEL:
 ShowWindow(hwnd, SW_HIDE);
 break;
 }break;
-case WM_USER:
+case WM_USER+105:
 switch(wp){
 case 0 ... 15: {
 auto it = patchToCBIndex.find(lp);
@@ -1221,6 +1221,8 @@ mididlg = CreateDialogParam(hinst, TEXT(IDD_MIDI), win, (DLGPROC)MIDIPanelDlgPro
 }
 ShowWindow(mididlg, SW_SHOW);
 SetForegroundWindow(mididlg);
+DWORD hs = BASS_FX_TempoGetSource(curHandle);
+for (int i=0; i<16; i++) SendMessage(mididlg, WM_USER+105, i, MIDIGetCurrentInstrument(hs,i));
 }
 
 BOOL inputDlgProc (HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
@@ -2155,13 +2157,13 @@ case IDM_ABOUT : aboutDialog(); break;
 case IDM_QUIT : PostQuitMessage(0); break;
 case IDM_DEBUG : PostMessage(win, WM_DEVICECHANGE, 0x07, 0); break;
 }
-if (n>=IDM_EFFECT && n<=IDM_EFFECT+255) {
+if (n>=IDM_EFFECT && n<=IDM_EFFECT+500) {
 effectinfo& e = effects[n - IDM_EFFECT];
 if (e.hfx) stopEffect(e);
 else if (!startEffect(e)) MessageBeep(MB_OK);
 CheckMenuItem(effectsMenu, n, MF_BYCOMMAND | (e.hfx? MF_CHECKED : MF_UNCHECKED));
 }
-else if (n>=IDM_ENCODEALL) {
+else if (n>=IDM_ENCODEALL && n<=IDM_ENCODEALL+100) {
 curDecodeDir.clear();
 TCHAR dir[512]={0};
 if (!BrowseFolders(win, dir, TEXT(MSG_FILESAVEALL2))) return;
@@ -2175,6 +2177,10 @@ LPQCPLUGIN p = encoders[n];
 if (p->flags&PF_HAS_OPTIONS_DIALOG) p->query(NULL, PP_ENC_OPTIONS_DIALOG, win, sizeof(HWND));
 if (curReverse) prevSong(); else nextSong();
 }
+else if (n>=IDM_CUSTOMCOMMAND && n<=IDM_CUSTOMCOMMAND+500) {
+executeCustomCommand(n);
+}
+//actions suite
 }
 
 void aboutDialog () {
@@ -3402,10 +3408,10 @@ DWORD* presets = new DWORD[info.presets];
 BASS_MIDI_FontGetPresets(font.font, presets);
 for (int j=0; j<info.presets; j++) {
 DWORD val, x=presets[j], preset =  LOWORD(x), bank = HIWORD(x);
-//printf("%d, %d = %s\r\n", HIWORD(x), LOWORD(x), BASS_MIDI_FontGetPreset(fonts[i].font, LOWORD(x), HIWORD(x)));
 if (font.spreset>=0 && preset!=font.spreset && info.presets>1) continue; 
 if (font.sbank>=0 && bank!=font.sbank && info.presets>1) continue;
 if (font.spreset==-1 && bank<128) bank+=font.dbank;
+else if (font.spreset>=0) bank = font.dbank;
 val = (preset&0x7F) | ((font.dbanklsb&0x7F)<<7) | ((bank&0xFF)<<14);
 if (map.find(val)!=map.end()) continue;
 const char* name = BASS_MIDI_FontGetPreset(fonts[i].font, LOWORD(x), HIWORD(x));
@@ -3418,20 +3424,23 @@ delete[] presets;
 DWORD MIDIGetCurrentInstrument (DWORD stream, int channel) {
 if (midiInstruments.size()<=0) MIDIFillInstrumentsList(midiInstruments);
 DWORD 
-bank = BASS_MIDI_StreamGetEvent(stream, channel, MIDI_EVENT_BANK),
-banklsb = BASS_MIDI_StreamGetEvent(stream, channel, MIDI_EVENT_BANK_LSB),
-preset = BASS_MIDI_StreamGetEvent(stream, channel, MIDI_EVENT_PROGRAM),
-drums = BASS_MIDI_StreamGetEvent(stream, channel, MIDI_EVENT_DRUMS);
-DWORD val = (preset&0x7F) | ((banklsb&0x7F)<<7) | ((bank&0xFF)<<14) | (drums? 1<<21 : 0);
+bank = BASS_MIDI_StreamGetEvent(stream, channel, MIDI_EVENT_BANK)&0x7F,
+banklsb = BASS_MIDI_StreamGetEvent(stream, channel, MIDI_EVENT_BANK_LSB)&0x7F,
+preset = BASS_MIDI_StreamGetEvent(stream, channel, MIDI_EVENT_PROGRAM)&0x7F,
+drum = BASS_MIDI_StreamGetEvent(stream, channel, MIDI_EVENT_DRUMS);
+DWORD val = preset | (banklsb<<7) | (bank<<14) | (drum? 1<<21 : 0);
 auto it = midiInstruments.find(val);
 if (it!=midiInstruments.end()) return val;
-val = (preset&0x7F) | ((bank&0xFF)<<14) | (drums? 1<<21 : 0);
+val = preset |  (bank<<14) | (drum? 1<<21 : 0);
 it = midiInstruments.find(val);
 if (it!=midiInstruments.end()) return val;
-val = (preset&0x7F) | (drums? 1<<21 : 0);
+val = preset | (banklsb<<7) | (drum? 1<<21 : 0);
 it = midiInstruments.find(val);
 if (it!=midiInstruments.end()) return val;
-val = (preset&0x78) | (drums? 1<<21 : 0);
+val = preset | (drum? 1<<21 : 0);
+it = midiInstruments.find(val);
+if (it!=midiInstruments.end()) return val;
+val = (preset&0x78) | (drum? 1<<21 : 0);
 it = midiInstruments.find(val);
 if (it!=midiInstruments.end()) return val;
 return 0;
@@ -3492,7 +3501,7 @@ void CALLBACK MIDISyncProgram (HSYNC sync, DWORD stream, DWORD index, void* unus
 if (!mididlg) return;
 DWORD chan = HIWORD(index);
 DWORD patch = MIDIGetCurrentInstrument(stream, chan);
-SendMessage(mididlg, WM_USER, chan, patch);
+SendMessage(mididlg, WM_USER+105, chan, patch);
 }
 
 void CALLBACK MIDISyncLyric (HSYNC sync, DWORD stream, DWORD index, void* unused) {
@@ -3500,8 +3509,8 @@ if (!mididlg) return;
 BASS_MIDI_MARK mark;
 if (BASS_MIDI_StreamGetMark(stream, BASS_MIDI_MARK_LYRIC, index, &mark)) {
 BOOL clear = !!(mark.text[0]=='/' || mark.text[0]=='\\');
-if (clear) SendMessage(mididlg, WM_USER, mark.text[0]=='/'?101:102, 0);
-SendMessage(mididlg, WM_USER, 100, mark.text+clear);
+if (clear) SendMessage(mididlg, WM_USER+105, mark.text[0]=='/'?101:102, 0);
+SendMessage(mididlg, WM_USER+105, 100, mark.text+clear);
 }}
 
 void CALLBACK MIDILoopStart (HSYNC sync, DWORD ch, DWORD data, DWORD pos) {

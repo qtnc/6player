@@ -78,10 +78,14 @@
 #define IDM_INTRO_MODE 2021
 #define IDM_SHOWMIDI 2022
 #define IDM_DEBUG 9999
-#define IDM_EFFECT 9700
+#define IDM_EFFECT 9500
 #define IDM_ENCODEALL 10000
+#define IDM_CUSTOMCOMMAND 11000
 
-//#include "french.h"
+#ifdef ENGLISH
 #include "english.h"
+#else
+#include "french.h"
+#endif
 
 #endif

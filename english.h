@@ -152,7 +152,7 @@
 #define MSG_MIDI_CHANNEL "Channel "
 
 #define MSG_ABOUTTITLE L"About 6player"
-#define MSG_ABOUTTEXT "6Player, version 4.0\r\nCopyright © 2011-2013, QuentinC\r\nMore info at http://quentinc.net/ "
+#define MSG_ABOUTTEXT "6Player, version 4.0 alpha\r\nCopyright © 2011-2014, QuentinC\r\nMore info at http://quentinc.net/ "
 
 #define MSG_FILEMENU "&File"
 #define MSG_FILEOPEN "&Open...\aCtrl+O"
