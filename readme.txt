@@ -1,52 +1,67 @@
 6player
+A simple and accessible audio player based on BASS library
 
-Liste des raccourcis
-C ou espace ou pav.num.5: lecture/pause
-X ou pav.num.0: lecture depuis le début
-K ou pav.num.7: morceau précédent
-L ou pav.num.9: morceau suivant
-delete/suppr: supprimer le morceau en cours de la playlist et passer au morceau suivant
-I ou pav.num.1: lecture en boucle
-P ou pav.num.3: lecture aléatoire
-M: fondu enchaîné (6 secondes)
-A/Q: ajuster vitesse
-S/W: ajuster hauteur par demi-tons
-Maj+A/Q: ajuster fréquence/rate
-Maj+S/W: ajuster hauteur par 0.1 demi-tons
-D/E: ajuster égaliseur bande 1 (300Hz)
-F/R: ajuster égaliseur bande 2 (700Hz)
-G/T: ajuster égaliseur bande 3 (1.5kHz)
-H/Z: ajuster égaliseur bande 4 (3.2kHz)
-J/U: ajuster égaliseur bande 5 (7kHz)
-O: désactiver tous les effets/pitch/vitesse
-Haut/bas ou pav.num.8/2: ajuster volume global
-Gauche/Droite: navigation 5 secondes
-Maj+Gauche/Droite ou PageUp/Down: navigation 30 secondes
-Maj+PageUp/Down: navigation 5 minutes
-F3 ou Alt+3: propriétés/information sur le fichier en cours
-Ctrl+O: ouvrir un fichier
-Ctrl+Maj+O: ouvrir fichier en mode ajout
-Ctrl+U: Ouvrir URL
-Ctrl+Maj+U: Ouvrir URL en mode ajout
-Ctrl+D: Ouvrir dossier
-Ctrl+Maj+D: Ouvrir dossier en mode ajout
-Ctrl+S: enregistrer sous
-Ctrl+Maj+S: enregistrer playlist
-Ctrl+J: atteindre/aller à la position
-Ctrl+P: options
-Alt+P: ouvrir fenêtre playlist
-Alt+R: ouvrir fenêtre radios
-Alt+M: Ouvrir panneau MIDI
-F4: activer le micro
-F6: Périphériques audio
-Ctrl+Maj+X: indexer playlist
-Ctrl+Maj+W: diffusion sur le web
+Features:
+* Support playing of about 90 popular and less popular formats; most poupular includes OGG, MP3, AAC, WMA, flac, MIDI, IT/XM/S3M/MOD, ... also plays audio part of video files (AVI, WMV, FLV, 3GP, OGV, ...); thank to BASS extensibility mechanism
+* Support of 5 playlist formats: PLS, M3U, ASX, WPL, XSPF
+* Play streams from URL, support for HTTP, HTTPS and FTP; includes a database of 20000 internet radio stations
+* Convert a single file or export the entire playlist to OGG, MP3, AAC, flac, wave, etc.
+* Quickly search within your playlist thank to the quick filter 
+* Edit tags of MP3 and OGG files
+* Change pitch, speed, rate, and add a variety of effects in real time
+* Support microphone, and effects can also be applied to it
+* Broadcast your music and your voice + optional effects to shoutcast, icecast, or private HTTP BASS server
+* Coming soon: lua scripting, and web HTTP control server
 
-Touches multimédias et touches télécommande sur écouteurs
-Play brièvement: lecture/pause
-Précédent/suivant brièvement: morceau précédent/suivant
-Précédent/suivant maintenu appuyé: navigation avance/retour rapide (5 secondes par 250ms)
-Play longtemps, puis Précédent/suivant brièvement: augmenter/diminuer pitch
-Play longtemps, puis Précédent/suivant maintenu appuyé: augmenter/diminuer vitesse
-Play très longtemps: réinitialiser pitch/Vitesse à défaut
-Longtemps = entre 250ms et 1sec, très longtemps = plus de 3sec
+License
+6player is distributed under GPL license. 
+If you want to contribute, please contact me using the contact page at <http://quentinc.net/>
+
+Keyboard shortcut list
+C, space or numpad 5: play/pause
+X or numpad 0: restart play
+K or numpad 7: previous song
+L or numpad 9: next song
+DEL: remove current song from playlist and go to next one
+I or numad 1: loop on/off
+P or numpad 3: random on/off
+M: cross fade on/off (cross fade is 6 seconds long)
+A and Q: adjust speed, without changing pitch
+S and W: adjust pitch in semitones, without changing speed
+Shift+A/Q: adjust rate (= speed and pitch simultaneously)
+Shift+S/W: adjust pitch by steps of 0.1 semitone, without changing speed
+D and E: adjust equalizer 1, 300Hz
+F and R: adjust equalizer 2, 700Hz
+G and T: adjust equalizer 3, 1.5kHz
+H and Z: adjust equalizer 4, 3.2kHz
+J and U: adjust equalizer 5, 7kHz
+O: disable all pitch/speed/rate effects
+Up/down or numpad 8/2: adjust global volume
+Left/right: navigation 5 seconds
+Shift+Up/Down or Page up/down: navigation 30 seconds
+Shift+Page up/down: navigation 5 minutes
+F3 or Alt+3: show properties of current file
+Ctrl+O: open file
+Ctrl+Shift+O: open file and append to playlist
+Ctrl+U: open URL
+Ctrl+Shift+U: Open URL and append to playlist
+Ctrl+D: open directory
+Ctrl+Shift+D: open directory and append to playlist
+Ctrl+S: save as / convert
+Ctrl+Shift+S: save playlist
+Ctrl+J: time jump / go to position
+Ctrl+P: options dialog
+Alt+P: open playlist window
+Alt+R: open radios window
+Alt+M: open MIDI panel window
+F4: turn mic on/off
+F6: configure audio devices
+
+Multimedia keys and commands on headphones :
+Play: play/pause
+Next/prev: go to next/previous song 
+Hold next/prev: navigate by 5 seconds every 250ms
+Long play, then next/prev: adjust pitch
+Long play, then hold next/prev: adjust speed
+Very long play: reset rate/pitch/speed to default
+Long = between 250ms and 1s, very long = more than 3s
