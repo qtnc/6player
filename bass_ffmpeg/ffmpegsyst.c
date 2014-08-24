@@ -36,10 +36,14 @@ if (avformat_open_input(&fmtctx, file, NULL, NULL)<0) return NULL;
 printf("After open input\r\n");
 if (avformat_find_stream_info(fmtctx, NULL)<0) return NULL;
 printf("After find streams\r\n");
+printf("%d streams\r\n", fmtctx->nb_streams);
 for (int i=0; i<fmtctx->nb_streams; i++) {
-if (fmtctx->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO) {
+if (fmtctx->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO && index<0) {
 index = i; 
-break;
+//break;
+}
+else if (fmtctx->streams[i]->codec->codec_type == AVMEDIA_TYPE_SUBTITLE) {
+printf("Subtitles found!\r\n");
 }}
 if (index<0 || index>=fmtctx->nb_streams) return NULL; // No audio
 cctx = fmtctx->streams[index]->codec;

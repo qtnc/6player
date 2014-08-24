@@ -31,6 +31,17 @@ ci[-3] = vsnwprintf(c, n, fmt.c_str(), lst);
 va_end(lst);
 }
 
+string toUTF8String (const char* in) {
+if (!in) return toString(in);
+for (unsigned char* s = (unsigned char*)in; *s; s++) {
+if (*s < 0x80) continue;
+else if (*s < 0xC0) return toString(toWString(in, CP_ACP), CP_UTF8);
+else if (*s < 0xE0) { if (*(++s) < 0x80) return toString(toWString(in, CP_ACP), CP_UTF8); }
+else if (*s < 0xF0) { if (*(++s)<0x80) if (*(++s) < 0x80) return toString(toWString(in, CP_ACP), CP_UTF8); }
+else return toString(toWString(in, CP_ACP), CP_UTF8);
+}
+return toString(in);
+}
 
 tstring formatTime (int n) {
 int h = n/3600, m=(n/60)%60, s=n%60;

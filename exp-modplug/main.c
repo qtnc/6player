@@ -13,7 +13,7 @@ static int exportQuery (const char* inFile, const char* outFile, DWORD handle,  
 if (flags&PF_EXP_CHECK) {
 BASS_CHANNELINFO info;
 if (!BASS_ChannelGetInfo(handle,&info)) return 0;
-return (info.ctype&0x20000) && !strchr(inFile,'?');
+return (info.ctype&0x20000) && inFile && !strchr(inFile,'?');
 }
 return func(inFile, outFile);
 }

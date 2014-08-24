@@ -1,16 +1,11 @@
 #include "consts.h"
-extern "C" {
-#include<lua/lua.h>
-#include<lua/lauxlib.h>
-#include<lua/lualib.h>
-}
+#include "luaBase.h"
 #include<string>
 #include<vector>
 #include<map>
 #include<unordered_map>
 #include "strings.hpp"
 #include "Socket.hpp"
-#include<vector>
 #include "playlist.h"
 using namespace std;
 
@@ -19,10 +14,14 @@ playlistitem* it;
 int num;
 };
 
+void action(int);
+
 extern int curSong;
 extern vector<playlistitem> playlist;
 
 lua_State* L = NULL;
+
+void executeCustomCommand (int n) {}
 
 static int luaL_fielderror (lua_State* L, const char* classname, const char* fieldname) {
 return luaL_error(L, "Unable to access field %s for object of type %s: this fiels may not exist, be read only, or the type of value supplied to write was unexpected.", fieldname, classname);
@@ -39,6 +38,11 @@ printf("Error in error handling !\r\n");
 return 1;
 }
 
+int luaL_checkboolean (lua_State* L, int n) {
+if (lua_isboolean(L,n)) return lua_toboolean(L,n);
+else return luaL_typerror(L,n,"boolean");
+}
+
 /*const char* callfunc (lua_State* L, void* p, int nArgs, int nRet) {
 lua_pushcfunction(L, lua_getbacktrace);
 lua_insert(L, -1 -nArgs);
@@ -50,22 +54,23 @@ return lua_tostring(L,-1);
 return NULL;
 }*/
 
-static inline void lua_pushstring (lua_State* L, const string& str) {
-lua_pushlstring(L, str.c_str(), str.size());
-}
-
 static inline void lua_regt (lua_State* L, const char* name, int(*func)(lua_State*), int cc=0) {
 lua_pushcclosure(L, func, cc);
 lua_setfield(L, -2, name);
 }
 
-static void* lua_pushudata (lua_State* L, void* udata, size_t size, const char* name) {
+void* lua_pushudata (lua_State* L, void* udata, size_t size, const char* name) {
 void* ptr = lua_newuserdata(L, size);
 if (!ptr) return NULL;
 luaL_getmetatable(L, name);
 lua_setmetatable(L, -2);
 memcpy(ptr, udata, size);
 return ptr;
+}
+
+static int lAction (lua_State* L) {
+action(lua_tointeger(L,1));
+return 0;
 }
 
 static void lua_pushplaylistitem (lua_State* L, playlistitem& it, int num = -1) {
@@ -154,7 +159,12 @@ lua_setmetatable(L,-2);
 lua_setglobal(L,"playlist");
 
 lua_newtable(L);
+lua_regt(L, "action", lAction);
 lua_setglobal(L, "player");
+
+lua_newtable(L);
+lua_regt(L, "action", lAction);
+lua_setglobal(L, "window");
 
 if (luaL_dofile(L,"autoexec.lua")) printf("ERROR: %s\r\n", lua_tostring(L,-1));
 }

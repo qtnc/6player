@@ -27,6 +27,8 @@ long long ffmpegGetDuration (void*) ;
 long long ffmpegGetPos (void*) ;
 void ffmpegSetPos (void*, long long) ;
 
+static BOOL initialized = FALSE;
+
 static void WINAPI FF_Free (FFStream  *stream) {
 if (!stream) return;
 if (stream->ff) ffmpegClose(stream->ff);
@@ -61,6 +63,10 @@ return -1;
 }
 
 static HSTREAM StreamCreateProc2 (const void* file, int iscustom, int flags) {
+if (!initialized) {
+ffmpegInit();
+initialized=TRUE;
+}
 void* ff = NULL;
 if (iscustom) {
 BOOL seekable = !(bassfunc->file.GetFlags(file) & (BASSFILE_BUFFERED | BASSFILE_BLOCK | BASSFILE_RESTRATE));
@@ -217,7 +223,6 @@ BOOL WINAPI EXPORT DllMain(HINSTANCE hDLL, DWORD reason, LPVOID reserved)
 				MessageBoxA(0,"Incorrect BASS.DLL version (" BASSVERSIONTEXT " is required)", "BASS", MB_ICONERROR | MB_OK);
 				return FALSE;
 			}
-ffmpegInit();
 			break;
 }
 	return TRUE;

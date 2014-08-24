@@ -27,6 +27,8 @@
 #define IDD_CASTDLG "castdlg"
 #define IDD_PLAYLIST "playlist"
 #define IDD_MIDI "mididlg"
+#define IDD_TEXTDLG "textdlg"
+#define IDD_LEVELSDLG "levdlg"
 #define IDD_RADIO "radios"
 #define IDD_RADIOPROPDLG "radioprop"
 #define IDD_PROGRESSDLG "progressdlg"
@@ -77,6 +79,8 @@
 #define IDM_REVERSE 2020
 #define IDM_INTRO_MODE 2021
 #define IDM_SHOWMIDI 2022
+#define IDM_SHOWTEXTPANEL 2023
+#define IDM_SHOWLEVELS 2024
 #define IDM_DEBUG 9999
 #define IDM_EFFECT 9500
 #define IDM_ENCODEALL 10000

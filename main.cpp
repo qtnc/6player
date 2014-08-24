@@ -76,7 +76,7 @@ DWORD HTTPServerTProc (LPVOID lp);
 
 const TCHAR szClassName[ ] = TEXT("QCPLAYER2");
 HINSTANCE hinst;
-HWND win=NULL, lbl=NULL, playlistdlg=NULL, mididlg=NULL, radiodlg = NULL, btnPlay=NULL, btnPrev=NULL, btnNext=NULL;
+HWND win=NULL, lbl=NULL, playlistdlg=NULL, mididlg=NULL, textdlg=NULL, levelsdlg=NULL, radiodlg = NULL, btnPlay=NULL, btnPrev=NULL, btnNext=NULL;
 HMENU lect, exportmenu, effectsMenu;
 HACCEL haccel;
 tstring filter;
@@ -532,6 +532,8 @@ if (TranslateAccelerator(win, haccel, &msg)) continue;
 if (playlistdlg && IsDialogMessage(playlistdlg, &msg)) continue;
 if (radiodlg && IsDialogMessage(radiodlg, &msg)) continue;
 if (mididlg && IsDialogMessage(mididlg, &msg)) continue;
+if (textdlg && IsDialogMessage(textdlg, &msg)) continue;
+if (levelsdlg && IsDialogMessage(levelsdlg, &msg)) continue;
 if (IsQCSpecialMessage(msg) && IsDialogMessage(win,&msg)) continue;
 TranslateMessage(&msg);
 DispatchMessage(&msg);
@@ -1170,7 +1172,7 @@ if (patch==it.first) SendMessage(hPatch, CB_SETCURSEL, index, 0);
 //Other channel specific items
 SendMessage(hPatch, WM_SETREDRAW, TRUE, 0);
 }
-SetFocus(GetDlgItem(hwnd,1000));
+SetFocus(GetDlgItem(hwnd,1200));
 }break;
 case WM_COMMAND:
 switch(LOWORD(wp)) {
@@ -1197,6 +1199,21 @@ if (it!=patchToCBIndex.end()) {
 HWND hcb = GetDlgItem(hwnd,1200+wp);
 SendMessage(hcb, CB_SETCURSEL, it->second, 0);
 }}break;
+//other WM_USER messages
+}break;
+default: break;
+}
+return FALSE;
+}
+
+BOOL TextPanelDlgProc (HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+switch(msg){
+case WM_COMMAND: switch(LOWORD(wp)){
+case IDCANCEL: 
+ShowWindow(hwnd, SW_HIDE);
+break;
+}break;
+case WM_USER+105: switch(wp) {
 case 100: {
 tstring text = toTString((const char*)lp);
 HWND h = GetDlgItem(hwnd,1000);
@@ -1208,11 +1225,62 @@ SendMessage(h, EM_SETSEL, len, len+text.size());
 case 101: case 102:
 SetDlgItemText(hwnd, 1000, NULL); 
 break;
-//other WM_USER messages
 }break;
 default: break;
 }
 return FALSE;
+}
+
+BOOL LevelsPanelDlgProc (HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+switch(msg){
+case WM_INITDIALOG : {
+for (int i=1000; i<=1003; i++) {
+HWND h = GetDlgItem(hwnd,i);
+SendMessage(h, TBM_SETRANGEMIN, FALSE, 0);
+SendMessage(h, TBM_SETRANGEMAX, FALSE, 1000);
+SendMessage(h, TBM_SETLINESIZE, 0, 1);
+SendMessage(h, TBM_SETPAGESIZE, 0, 50);
+}
+SendDlgItemMessage(hwnd, 1000, TBM_SETPOS, TRUE, 1000 * curVol);
+SendDlgItemMessage(hwnd, 1001, TBM_SETPOS, TRUE, 1000 * curRecVol);
+SendDlgItemMessage(hwnd, 1002, TBM_SETPOS, TRUE, 1000 * curCastVol);
+SendDlgItemMessage(hwnd, 1003, TBM_SETPOS, TRUE, 1000 * curRecCastVol);
+SetFocus(GetDlgItem(hwnd,1000));
+}break;
+case WM_COMMAND: switch(LOWORD(wp)){
+case IDCANCEL: 
+ShowWindow(hwnd, SW_HIDE);
+break;
+}break;
+case WM_HSCROLL : {
+int ival = SendMessage(lp, TBM_GETPOS, 0, 0);
+float val = ival/1000.0f;
+switch(GetDlgCtrlID(lp)) {
+case 1000: setSongVol(val); break;
+case 1001: setRecVol(val); break;
+case 1002: setCastVol(val); break;
+case 1003: setRecCastVol(val); break;
+}}break;
+break;
+default: break;
+}
+return FALSE;
+}
+
+void showLevelsPanel (void) {
+if (!levelsdlg) {
+levelsdlg = CreateDialogParam(hinst, TEXT(IDD_LEVELSDLG), win, (DLGPROC)LevelsPanelDlgProc, NULL);
+}
+ShowWindow(levelsdlg, SW_SHOW);
+SetForegroundWindow(levelsdlg);
+}
+
+void showTextPanel (void) {
+if (!textdlg) {
+textdlg = CreateDialogParam(hinst, TEXT(IDD_TEXTDLG), win, (DLGPROC)TextPanelDlgProc, NULL);
+}
+ShowWindow(textdlg, SW_SHOW);
+SetForegroundWindow(textdlg);
 }
 
 void showMIDIPanel (void) {
@@ -2134,6 +2202,8 @@ for (int i=0; i < 5; i++) setEqualizerValue(curHandle,i,0);
 break;
 case IDM_SHOWPLAYLIST: showPlaylist(); break;
 case IDM_SHOWMIDI: showMIDIPanel(); break;
+case IDM_SHOWTEXTPANEL: showTextPanel(); break;
+case IDM_SHOWLEVELS: showLevelsPanel(); break;
 case IDM_SHOWINFO: fileInformationDialog(curSong); break;
 case IDM_RADIO: showRadio(); break;
 case IDM_GOTOTIME: gotoTimeDialog(); break;
@@ -2628,24 +2698,28 @@ void setCastVol (float f) {
 curCastVol = minmax(0.0f,f,1.0f);
 if (curCopyHandle==NULL) return;
 BASS_ChannelSetAttribute(curCopyHandle, BASS_ATTRIB_VOL, curCastVol);
+if (levelsdlg) SendDlgItemMessage(levelsdlg, 1002, TBM_SETPOS, TRUE, 1000 * curCastVol);
 }
 
 void setRecVol (float f) {
 curRecVol = minmax(0.0f,f,1.0f);
 if (curFeedback==NULL) return;
 BASS_ChannelSetAttribute(curFeedback, BASS_ATTRIB_VOL, curRecVol);
+if (levelsdlg) SendDlgItemMessage(levelsdlg, 1001, TBM_SETPOS, TRUE, 1000 * curRecVol);
 }
 
 void setRecCastVol (float f) {
 curRecCastVol = minmax(0.0f,f,1.0f);
 if (curFeedback2==NULL) return;
 BASS_ChannelSetAttribute(curFeedback2, BASS_ATTRIB_VOL, curRecCastVol);
+if (levelsdlg) SendDlgItemMessage(levelsdlg, 1003, TBM_SETPOS, TRUE, 1000 * curRecCastVol);
 }
 
 void setSongVol (float f) {
 curVol = minmax(0.0f,f,1.0f);
 if (curHandle==NULL) return;
 BASS_ChannelSetAttribute(curHandle, BASS_ATTRIB_VOL, curVol);
+if (levelsdlg) SendDlgItemMessage(levelsdlg, 1000, TBM_SETPOS, TRUE, 1000 * curVol);
 }
 
 
@@ -3151,7 +3225,7 @@ const char
 *disc  = strtok2(NULL, 15), 
 *tracknum= strtok2(NULL, 16),
 *comment = strtok2(NULL, 17);
-#define F(x) if (x && strlen(x)>0) it.x=toString(x); else it.x.clear();
+#define F(x) if (x && strlen(x)>0) it.x=toUTF8String(x); else it.x.clear();
 F(title) F(artist) F(album) F(genre) F(subtitle)
 F(year) F(composer) F(disc) F(tracknum) F(copyright) F(comment)
 #undef F
@@ -3173,14 +3247,14 @@ if (tags && strlen(tags)>0) {
 for (; *tags; tags+=strlen(tags)+1) {
 if (!strnicmp(tags, "ici-name:", 9)) {
 it.title.clear(); it.album.clear(); it.artist.clear(); it.genre.clear(); it.subtitle.clear();
-it.title = toString(tags+9);
+it.title = toUTF8String(tags+9);
 return it;
 }}}
 
 tags = BASS_ChannelGetTags(handle, BASS_TAG_MIDI_TRACK);
 if (tags && strlen(tags)>0) {
 it.album.clear(); it.artist.clear(); it.genre.clear(); it.subtitle.clear();
-it.title = toString(tags);
+it.title = toUTF8String(tags);
 return it;
 }
 
@@ -3505,12 +3579,12 @@ SendMessage(mididlg, WM_USER+105, chan, patch);
 }
 
 void CALLBACK MIDISyncLyric (HSYNC sync, DWORD stream, DWORD index, void* unused) {
-if (!mididlg) return;
+if (!textdlg) return;
 BASS_MIDI_MARK mark;
 if (BASS_MIDI_StreamGetMark(stream, BASS_MIDI_MARK_LYRIC, index, &mark)) {
 BOOL clear = !!(mark.text[0]=='/' || mark.text[0]=='\\');
-if (clear) SendMessage(mididlg, WM_USER+105, mark.text[0]=='/'?101:102, 0);
-SendMessage(mididlg, WM_USER+105, 100, mark.text+clear);
+if (clear) SendMessage(textdlg, WM_USER+105, mark.text[0]=='/'?101:102, 0);
+SendMessage(textdlg, WM_USER+105, 100, mark.text+clear);
 }}
 
 void CALLBACK MIDILoopStart (HSYNC sync, DWORD ch, DWORD data, DWORD pos) {

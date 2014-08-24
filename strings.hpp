@@ -7,6 +7,8 @@
 #include<cstdlib>
 #include<windows.h>
 
+#define CP_AUTODETECT CP_ACP
+
 template<class T>
 struct basic_split_iterator {
 const std::basic_string<T> str;
@@ -176,6 +178,8 @@ return ws;
 
 inline std::string toString (const wchar_t* ws) { std::wstring z(ws?ws:L""); return toString(z); }
 inline std::wstring toWString (const char* str) { std::string z(str?str:""); return toWString(z); }
+
+std::string toUTF8String (const char* input);
 
 template <class T> inline T fromString (const std::string& s) { throw 0; }
 template<> inline std::string fromString (const std::string& s) { return s; }
