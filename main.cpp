@@ -76,7 +76,7 @@ DWORD HTTPServerTProc (LPVOID lp);
 
 const TCHAR szClassName[ ] = TEXT("QCPLAYER2");
 HINSTANCE hinst;
-HWND win=NULL, lbl=NULL, playlistdlg=NULL, mididlg=NULL, textdlg=NULL, levelsdlg=NULL, radiodlg = NULL, btnPlay=NULL, btnPrev=NULL, btnNext=NULL;
+HWND win=NULL, lbl=NULL, playlistdlg=NULL, mididlg=NULL, textdlg=NULL, levelsdlg=NULL, radiodlg = NULL, btnPlay=NULL, btnPrev=NULL, btnNext=NULL, tbVolume=NULL, tbSeek=NULL;
 HMENU lect, exportmenu, effectsMenu;
 HACCEL haccel;
 tstring filter;
@@ -316,6 +316,18 @@ win, (HMENU)IDM_PREV, hinst, NULL);
 btnNext = CreateWindowEx(0, TEXT("BUTTON"), TEXT(">>"), WS_CHILD | WS_VISIBLE | WS_TABSTOP, 
 140, 5, 60, 40,
 win, (HMENU)IDM_NEXT, hinst, NULL);
+CreateWindowEx(0, TEXT("STATIC"), TEXT(MSG_TBPOSITION), WS_CHILD | WS_VISIBLE, 
+5, 60, 380, 40,
+win, (HMENU)0, hinst, NULL);
+tbSeek = CreateWindowEx(0, TRACKBAR_CLASS, TEXT(MSG_TBPOSITION), WS_CHILD | WS_VISIBLE | WS_TABSTOP | TBS_HORZ, 
+5, 60, 380, 40,
+win, (HMENU)0, hinst, NULL);
+CreateWindowEx(0, TEXT("STATIC"), TEXT(MSG_TBVOLUME), WS_CHILD | WS_VISIBLE, 
+400, 60, 100, 40,
+win, (HMENU)0, hinst, NULL);
+tbVolume = CreateWindowEx(0, TRACKBAR_CLASS, TEXT(MSG_TBVOLUME), WS_CHILD | WS_VISIBLE | WS_TABSTOP | TBS_NOTICKS | TBS_HORZ, 
+400, 60, 100, 40,
+win, (HMENU)0, hinst, NULL);
 
 RegisterHotKey(win, IDM_PAUSE, 0, 0xA9);
 RegisterHotKey(win, IDM_PAUSE, 0, 0xB3);
@@ -520,6 +532,16 @@ CheckMenuItem(lect, IDM_REVERSE, MF_BYCOMMAND | (curReverse? MF_CHECKED : MF_UNC
 CheckMenuItem(lect, IDM_INTRO_MODE, MF_BYCOMMAND | (curIntroMode? MF_CHECKED : MF_UNCHECKED));
 CheckMenuItem(lect, IDM_CROSSFADE, MF_BYCOMMAND | (crossFade>0? MF_CHECKED : MF_UNCHECKED));
 CheckMenuRadioItem(GetSubMenu(effectsMenu,0), 0, 3, fxTarget -1, MF_BYPOSITION);
+
+SendMessage(tbVolume, TBM_SETRANGEMIN, FALSE, 0);
+SendMessage(tbVolume, TBM_SETRANGEMAX, FALSE, 200);
+SendMessage(tbVolume, TBM_SETLINESIZE, FALSE, 1);
+SendMessage(tbVolume, TBM_SETPAGESIZE, FALSE, 20);
+SendMessage(tbVolume, TBM_SETPOS, TRUE, 200.0 * curVol);
+SendMessage(tbSeek, TBM_SETRANGEMIN, FALSE, 0);
+SendMessage(tbSeek, TBM_SETRANGEMAX, FALSE, 300000);
+SendMessage(tbSeek, TBM_SETLINESIZE, FALSE, 5000);
+SendMessage(tbSeek, TBM_SETPAGESIZE, FALSE, 30000);
 
 SetCurrentDirectory(curdir.c_str());
 if (ini.get("webserver.on",true)) CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)HTTPServerTProc, (LPVOID)(0), 0, NULL);
@@ -1237,14 +1259,14 @@ case WM_INITDIALOG : {
 for (int i=1000; i<=1003; i++) {
 HWND h = GetDlgItem(hwnd,i);
 SendMessage(h, TBM_SETRANGEMIN, FALSE, 0);
-SendMessage(h, TBM_SETRANGEMAX, FALSE, 1000);
+SendMessage(h, TBM_SETRANGEMAX, FALSE, 200);
 SendMessage(h, TBM_SETLINESIZE, 0, 1);
-SendMessage(h, TBM_SETPAGESIZE, 0, 50);
+SendMessage(h, TBM_SETPAGESIZE, 0, 20);
 }
-SendDlgItemMessage(hwnd, 1000, TBM_SETPOS, TRUE, 1000 * curVol);
-SendDlgItemMessage(hwnd, 1001, TBM_SETPOS, TRUE, 1000 * curRecVol);
-SendDlgItemMessage(hwnd, 1002, TBM_SETPOS, TRUE, 1000 * curCastVol);
-SendDlgItemMessage(hwnd, 1003, TBM_SETPOS, TRUE, 1000 * curRecCastVol);
+SendDlgItemMessage(hwnd, 1000, TBM_SETPOS, TRUE, 200.0 * curVol);
+SendDlgItemMessage(hwnd, 1001, TBM_SETPOS, TRUE, 200.0 * curRecVol);
+SendDlgItemMessage(hwnd, 1002, TBM_SETPOS, TRUE, 200.0 * curCastVol);
+SendDlgItemMessage(hwnd, 1003, TBM_SETPOS, TRUE, 200.0 * curRecCastVol);
 SetFocus(GetDlgItem(hwnd,1000));
 }break;
 case WM_COMMAND: switch(LOWORD(wp)){
@@ -1254,7 +1276,7 @@ break;
 }break;
 case WM_HSCROLL : {
 int ival = SendMessage(lp, TBM_GETPOS, 0, 0);
-float val = ival/1000.0f;
+double val = ival/200.0;
 switch(GetDlgCtrlID(lp)) {
 case 1000: setSongVol(val); break;
 case 1001: setRecVol(val); break;
@@ -2023,6 +2045,10 @@ case WM_ACTIVATE: if(wParam>0) {
 ctrlDown = shiftDown = FALSE; 
 SetFocus(lbl);
 }break;
+case WM_HSCROLL :
+if (lParam==tbVolume) setSongVol( SendMessage(tbVolume, TBM_GETPOS, 0, 0) /200.0);
+else if (lParam==tbSeek) seekSong( SendMessage(tbSeek, TBM_GETPOS, 0, 0) /1000.0, FALSE);
+break;
 /*case WM_DEVICECHANGE :
 if (wParam==0x07) PostMessage(hwnd, WM_USER+2000, 25, 0);
 break;
@@ -2698,28 +2724,29 @@ void setCastVol (float f) {
 curCastVol = minmax(0.0f,f,1.0f);
 if (curCopyHandle==NULL) return;
 BASS_ChannelSetAttribute(curCopyHandle, BASS_ATTRIB_VOL, curCastVol);
-if (levelsdlg) SendDlgItemMessage(levelsdlg, 1002, TBM_SETPOS, TRUE, 1000 * curCastVol);
+if (levelsdlg) SendDlgItemMessage(levelsdlg, 1002, TBM_SETPOS, TRUE, 200.0 * curCastVol);
 }
 
 void setRecVol (float f) {
 curRecVol = minmax(0.0f,f,1.0f);
 if (curFeedback==NULL) return;
 BASS_ChannelSetAttribute(curFeedback, BASS_ATTRIB_VOL, curRecVol);
-if (levelsdlg) SendDlgItemMessage(levelsdlg, 1001, TBM_SETPOS, TRUE, 1000 * curRecVol);
+if (levelsdlg) SendDlgItemMessage(levelsdlg, 1001, TBM_SETPOS, TRUE, 200.0 * curRecVol);
 }
 
 void setRecCastVol (float f) {
 curRecCastVol = minmax(0.0f,f,1.0f);
 if (curFeedback2==NULL) return;
 BASS_ChannelSetAttribute(curFeedback2, BASS_ATTRIB_VOL, curRecCastVol);
-if (levelsdlg) SendDlgItemMessage(levelsdlg, 1003, TBM_SETPOS, TRUE, 1000 * curRecCastVol);
+if (levelsdlg) SendDlgItemMessage(levelsdlg, 1003, TBM_SETPOS, TRUE, 200.0 * curRecCastVol);
 }
 
 void setSongVol (float f) {
 curVol = minmax(0.0f,f,1.0f);
 if (curHandle==NULL) return;
 BASS_ChannelSetAttribute(curHandle, BASS_ATTRIB_VOL, curVol);
-if (levelsdlg) SendDlgItemMessage(levelsdlg, 1000, TBM_SETPOS, TRUE, 1000 * curVol);
+if (levelsdlg) SendDlgItemMessage(levelsdlg, 1000, TBM_SETPOS, TRUE, 200.0 * curVol);
+SendMessage(tbVolume, TBM_SETPOS, TRUE, 200.0 * curVol);
 }
 
 
@@ -3172,11 +3199,13 @@ else if (curLoop || crossFade<=0 || curStreamLen<30) { if (curReverse) prevSong(
 ignoreUpdate=false;
 return;
 }
-if (curStreamLen<=0) curStreamLen = BASS_ChannelBytes2Seconds(curHandle, BASS_ChannelGetLength(curHandle, BASS_POS_BYTE));
+BOOL lenChanged=FALSE;
+if (curStreamLen<=0) {
+curStreamLen = BASS_ChannelBytes2Seconds(curHandle, BASS_ChannelGetLength(curHandle, BASS_POS_BYTE));
+lenChanged=TRUE;
+}
 double dpos = BASS_ChannelBytes2Seconds(curHandle, BASS_ChannelGetPosition(curHandle, BASS_POS_BYTE));
 
-int errorcode = BASS_ErrorGetCode();
-if (errorcode) printf("Error=%d\r\n",errorcode);
 int pos = (int)(dpos / curSpeed);
 int len = (int)(curStreamLen / curSpeed);
 int spdprc = (int)round(100 * curSpeed);
@@ -3186,6 +3215,8 @@ if (!curLoop && ( (crossFade>0 && curStreamLen>=30 && curStreamLen-dpos<=crossFa
 tstring str;
 wsnprintf(str, 1024, TEXT("%s / %s, spd %d%%, pitch %+.3g, vol %d%%"), formatTime(pos).c_str(), formatTime(len).c_str(), spdprc, curTransposition, vlprc);
 SetWindowText(lbl, str.c_str());
+if (lenChanged) SendMessage(tbSeek, TBM_SETRANGEMAX, FALSE, 1000.0 * curStreamLen);
+SendMessage(tbSeek, TBM_SETPOS, TRUE, 1000.0 * dpos);
 ignoreUpdate=false;
 }
 

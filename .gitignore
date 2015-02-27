@@ -34,11 +34,13 @@ obj
 *.dl2
 *.dl3
 *.dl4
+*.webm
+*.wma
 test*
 *copie*.*
 *old*
 *temp*
 *tmp*
-out*.txt
+out*
 err*.txt
 bass-addon.h

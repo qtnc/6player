@@ -1,0 +1,10 @@
+*.c text
+*.cpp text
+*.h text
+*.hpp text
+*.bat text
+*.txt text
+*.md text
+*.rc text
+*.lua text
+*.conf text

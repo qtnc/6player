@@ -1,6 +1,6 @@
 /*
 	BASSenc 2.4 C/C++ header file
-	Copyright (c) 2003-2013 Un4seen Developments Ltd.
+	Copyright (c) 2003-2014 Un4seen Developments Ltd.
 
 	See the BASSENC.CHM file for more detailed documentation
 */
@@ -96,6 +96,16 @@ length : Number of bytes
 offset : File offset of the data
 user   : The 'user' parameter value given when calling BASS_Encode_StartCA */
 
+typedef DWORD (CALLBACK ENCODERPROC)(HENCODE handle, DWORD channel, void *buffer, DWORD length, DWORD maxout, void *user);
+/* Encoder callback function.
+handle : The encoder
+channel: The channel handle
+buffer : Buffer containing the PCM data (input) and receiving the encoded data (output)
+length : Number of bytes in (-1=closing)
+maxout : Maximum number of bytes out
+user   : The 'user' parameter value given when calling BASS_Encode_StartUser
+RETURN : The amount of encoded data (-1=stop) */
+
 typedef BOOL (CALLBACK ENCODECLIENTPROC)(HENCODE handle, BOOL connect, const char *client, char *headers, void *user);
 /* Client connection notification callback function.
 handle : The encoder
@@ -125,6 +135,7 @@ DWORD BASSENCDEF(BASS_Encode_GetVersion)();
 
 HENCODE BASSENCDEF(BASS_Encode_Start)(DWORD handle, const char *cmdline, DWORD flags, ENCODEPROC *proc, void *user);
 HENCODE BASSENCDEF(BASS_Encode_StartLimit)(DWORD handle, const char *cmdline, DWORD flags, ENCODEPROC *proc, void *user, DWORD limit);
+HENCODE BASSENCDEF(BASS_Encode_StartUser)(DWORD handle, const char *filename, DWORD flags, ENCODERPROC *proc, void *user);
 BOOL BASSENCDEF(BASS_Encode_AddChunk)(HENCODE handle, const char *id, const void *buffer, DWORD length);
 DWORD BASSENCDEF(BASS_Encode_IsActive)(DWORD handle);
 BOOL BASSENCDEF(BASS_Encode_Stop)(DWORD handle);
@@ -139,12 +150,12 @@ DWORD BASSENCDEF(BASS_Encode_GetChannel)(HENCODE handle);
 #ifdef _WIN32
 DWORD BASSENCDEF(BASS_Encode_GetACMFormat)(DWORD handle, void *form, DWORD formlen, const char *title, DWORD flags);
 HENCODE BASSENCDEF(BASS_Encode_StartACM)(DWORD handle, const void *form, DWORD flags, ENCODEPROC *proc, void *user);
-HENCODE BASSENCDEF(BASS_Encode_StartACMFile)(DWORD handle, const void *form, DWORD flags, const char *file);
+HENCODE BASSENCDEF(BASS_Encode_StartACMFile)(DWORD handle, const void *form, DWORD flags, const char *filename);
 #endif
 
 #ifdef __APPLE__
 HENCODE BASSENCDEF(BASS_Encode_StartCA)(DWORD handle, DWORD ftype, DWORD atype, DWORD flags, DWORD bitrate, ENCODEPROCEX *proc, void *user);
-HENCODE BASSENCDEF(BASS_Encode_StartCAFile)(DWORD handle, DWORD ftype, DWORD atype, DWORD flags, DWORD bitrate, const char *file);
+HENCODE BASSENCDEF(BASS_Encode_StartCAFile)(DWORD handle, DWORD ftype, DWORD atype, DWORD flags, DWORD bitrate, const char *filename);
 #endif
 
 #ifndef _WIN32_WCE
@@ -171,14 +182,19 @@ static inline HENCODE BASS_Encode_StartLimit(DWORD handle, const WCHAR *cmdline,
 	return BASS_Encode_StartLimit(handle, (const char *)cmdline, flags|BASS_UNICODE, proc, user, limit);
 }
 
+static inline HENCODE BASS_Encode_StartUser(DWORD handle, const WCHAR *filename, DWORD flags, ENCODERPROC *proc, void *user)
+{
+	return BASS_Encode_StartUser(handle, (const char *)filename, flags|BASS_UNICODE, proc, user);
+}
+
 static inline DWORD BASS_Encode_GetACMFormat(DWORD handle, void *form, DWORD formlen, const WCHAR *title, DWORD flags)
 {
 	return BASS_Encode_GetACMFormat(handle, form, formlen, (const char *)title, flags|BASS_UNICODE);
 }
 
-static inline HENCODE BASS_Encode_StartACMFile(DWORD handle, const void *form, DWORD flags, const WCHAR *file)
+static inline HENCODE BASS_Encode_StartACMFile(DWORD handle, const void *form, DWORD flags, const WCHAR *filename)
 {
-	return BASS_Encode_StartACMFile(handle, form, flags|BASS_UNICODE, (const char *)file);
+	return BASS_Encode_StartACMFile(handle, form, flags|BASS_UNICODE, (const char *)filename);
 }
 #endif
 #endif

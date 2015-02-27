@@ -156,6 +156,8 @@
 #define MSG_LEV_MIC "Retour micro : "
 #define MSG_LEV_BVOL "Emission musique : "
 #define MSG_LEV_BMIC "Emission micro : "
+#define MSG_TBPOSITION "Position"
+#define MSG_TBVOLUME "Volume"
 #define MSG_ABOUTTITLE L"\xC0 propos de 6Player"
 #define MSG_ABOUTTEXT "6Player, version 4.0 alpha\r\nCopyright © 2011-2014, QuentinC\r\nPlus d'infos sur http://quentinc.net/ "
 

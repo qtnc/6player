@@ -15,6 +15,8 @@
 #define MSG_BTNDELETEALL "Delete &all"
 #define MSG_PLTRIM L"&Trim"
 #define MSG_PLSORT "&Sort"
+#define MSG_TBPOSITION "Position"
+#define MSG_TBVOLUME "Volume"
 #define MSG_PLSORTFILE "By &filename"
 #define MSG_PLSORTTITLE "By &title"
 #define MSG_PLSORTARTIST "By &artist"
