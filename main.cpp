@@ -52,7 +52,7 @@ TCHAR* title;
 
 typedef struct {
 int outDevice, inDevice, jingleDevice, feedbackDevice, previewDevice;
-bool useJingles, castNoFeedback, castAutoTitle;
+bool useJingles, castNoFeedback, castAutoTitle, autoAdjustMusic;
 } optionsinfo;
 
 typedef struct {
@@ -64,7 +64,7 @@ char data[116];
 
 typedef struct {
 int type, port, format, bitrate;
-tstring host, password, mimetype, name, url, genre, desc;
+tstring host, password, streamid, mimetype, name, url, genre, desc;
 } castinfo;
 
 typedef BOOL(*__stdcall SAYSTRINGFUNC)(LPCTSTR,BOOL);
@@ -191,11 +191,11 @@ vector<effectinfo> effects;
 vector<playlistitem> playlist;
 map<DWORD,string> midiInstruments;
 IniFile ini;
-DWORD curHandle = 0, curMixHandle=0, curRecord = 0, curFeedback=0, curFeedback2=0, curEncode=0, curCopyHandle=0, curPreviewHandle=0;
+DWORD curHandle = 0, curMixHandle=0, curRecord = 0, curFeedback=0, curRecCastHandle=0, curEncode=0, curCopyHandle=0, curPreviewHandle=0, curSilenceSyncHandle=0;
 int curDecode = -1, curCasting=-1;
 double curStreamLen = 0, curLoopStart=0;
 string curDecodeFn, curDecodeDir;
-BOOL ignoreUpdate=FALSE, keepDecode = FALSE, useJingles=false, castNoFeedback=true, castAutoTitle = TRUE;
+BOOL ignoreUpdate=FALSE, keepDecode = FALSE, useJingles=false, castNoFeedback=true, castAutoTitle = TRUE, curAutoAdjustCastMusic=false;
 bool playlistRevDir = FALSE, initialized = FALSE;
 HFX eqHfx[5]={0,0,0,0,0};
 DWORD bInitedDevices=0;
@@ -367,6 +367,7 @@ curVol = ini.get("play.volume", curVol);
 curRecVol = ini.get("play.recVolume", curRecVol);
 curCastVol = ini.get("casting.outVolume", curCastVol);
 curRecCastVol = ini.get("casting.recVolume", curRecCastVol);
+curAutoAdjustCastMusic = ini.get("casting.autoAdjustMusic", false);
 curSpeed = ini.get("play.speed", 1.0);
 curTransposition = ini.get("play.pitch", 0.0);
 curRate = ini.get("play.rate", 1.0);
@@ -582,6 +583,7 @@ ini.put("play.loop", curLoop);
 ini.put("play.random", curRandom);
 ini.put("play.reverse", curReverse);
 ini.put("play.introMode", curIntroMode);
+ini.put("casting.autoAdjustMusic", curAutoAdjustCastMusic);
 ini.put("play.volume", curVol);
 ini.put("play.recVolume", curRecVol);
 ini.put("casting.outVolume", curCastVol);
@@ -1719,6 +1721,7 @@ o = (optionsinfo*)(((PROPSHEETPAGE*)lp)->lParam);
 CheckDlgButton(hwnd, 1001, o->useJingles? BST_CHECKED : BST_UNCHECKED);
 CheckDlgButton(hwnd, 1002, o->castNoFeedback? BST_CHECKED : BST_UNCHECKED);
 CheckDlgButton(hwnd, 1003, o->castAutoTitle? BST_CHECKED : BST_UNCHECKED);
+CheckDlgButton(hwnd, 1004, o->autoAdjustMusic? BST_CHECKED : BST_UNCHECKED);
 break;
 case WM_COMMAND :
 switch(LOWORD(wp)) {
@@ -1734,6 +1737,7 @@ case PSN_APPLY :
 o->castAutoTitle = IsDlgButtonChecked(hwnd, 1003)==BST_CHECKED;
 o->castNoFeedback = IsDlgButtonChecked(hwnd, 1002)==BST_CHECKED;
 o->useJingles = IsDlgButtonChecked(hwnd, 1001)==BST_CHECKED;
+o->autoAdjustMusic = IsDlgButtonChecked(hwnd, 1004)==BST_CHECKED;
 SetWindowLong(hwnd, DWL_MSGRESULT, PSNRET_NOERROR);
 return TRUE;
 }break;
@@ -1808,6 +1812,7 @@ o.feedbackDevice = feedbackDevice;
 o.useJingles = useJingles;
 o.castAutoTitle = castAutoTitle;
 o.castNoFeedback = castNoFeedback;
+o.autoAdjustMusic = curAutoAdjustCastMusic;
 PROPSHEETHEADER psh;
 PROPSHEETPAGE pages[nPages];
 {
@@ -1870,6 +1875,7 @@ changeInDevice(o.inDevice);
 useJingles = o.useJingles;
 castAutoTitle = o.castAutoTitle;
 castNoFeedback = o.castNoFeedback;
+curAutoAdjustCastMusic = o.autoAdjustMusic;
 }}
 
 BOOL castDlgProc (HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
@@ -1877,13 +1883,15 @@ static castinfo* c = NULL;
 switch(msg){
 case WM_INITDIALOG : {
 c = (castinfo*)lp;
-SendDlgItemMessage(hwnd, 1001, CB_ADDSTRING, 0, (LPARAM)TEXT(MSG_SHOUTCAST));
 SendDlgItemMessage(hwnd, 1001, CB_ADDSTRING, 0, (LPARAM)TEXT(MSG_ICECAST));
+SendDlgItemMessage(hwnd, 1001, CB_ADDSTRING, 0, (LPARAM)TEXT(MSG_SHOUTCAST));
+SendDlgItemMessage(hwnd, 1001, CB_ADDSTRING, 0, (LPARAM)TEXT(MSG_SHOUTCAST2));
 SendDlgItemMessage(hwnd, 1001, CB_ADDSTRING, 0, (LPARAM)TEXT(MSG_CASTDIRECT));
 SendDlgItemMessage(hwnd, 1001, CB_SETCURSEL, c->type, 0);
 SetDlgItemText(hwnd, 1002, c->host.c_str());
 SetDlgItemText(hwnd, 1004, c->name.c_str());
 SetDlgItemText(hwnd, 1005, c->password.c_str());
+SetDlgItemText(hwnd, 1010, c->streamid.c_str());
 SetDlgItemText(hwnd, 1007, c->url.c_str());
 SetDlgItemText(hwnd, 1008, c->genre.c_str());
 SetDlgItemText(hwnd, 1009, c->desc.c_str());
@@ -1906,7 +1914,7 @@ if(p->flags&PF_HAS_OPTIONS_DIALOG) p->query(NULL, PP_ENC_OPTIONS_DIALOG, hwnd, s
 case IDCANCEL: EndDialog(hwnd,1); break;
 case IDOK :
 #define S(x,n) { int len = GetWindowTextLength(GetDlgItem(hwnd,n)); c->x.clear(); TCHAR buf[n+1]; GetDlgItemText(hwnd, n, buf, len+1); c->x=buf; }
-S(host, 1002) S(name, 1004) S(password, 1005)
+S(host, 1002) S(name, 1004) S(password, 1005) S(streamid, 1010)
 S(url, 1007) S(genre, 1008) S(desc, 1009)
 #undef S
 c->port = GetDlgItemInt(hwnd, 1003, NULL, FALSE);
@@ -1930,16 +1938,22 @@ castinfo c;
 c.port = 8000;
 c.type=0;
 c.format = -1;
+c.host = TEXT("localhost");
+c.password = TEXT("hackme");
+c.streamid = TEXT("live.mp3");
 if (DialogBoxParam(hinst, TEXT(IDD_CASTDLG), win, (DLGPROC)castDlgProc, (LPARAM)&c) >1) {
 tstring addr;
 switch(c.type){
-case 0 : // shoutcast
+case 0 : // Icecast
+wsnprintf(addr, 512, TEXT("%s:%d/%s"), c.host.c_str(), c.port, c.streamid.c_str() );
+break;
+case 1 : // shoutcast
 wsnprintf(addr, 512, TEXT("%s:%d"), c.host.c_str(), c.port);
 break;
-case 1 : // Icecast
-wsnprintf(addr, 512, TEXT("%s:%d/mount"), c.host.c_str(), c.port);
+case 2: // shoutcast2
+wsnprintf(addr, 512, TEXT("%s:%d,%s"), c.host.c_str(), c.port, c.streamid.c_str() );
 break;
-case 2: // direct
+case 3: // direct
 wsnprintf(addr, 512, TEXT("0.0.0.0:%d"), c.port);
 break;
 }
@@ -1960,6 +1974,7 @@ MessageBox(win, TEXT(ERROR), toTString(MSG_CASTFAIL).c_str(), MB_OK | MB_ICONSTO
 else {
 if (curFeedback&&castNoFeedback) BASS_ChannelSetAttribute(curFeedback, BASS_ATTRIB_VOL, 0);
 CheckMenuItem(lect, IDM_CAST, MF_BYCOMMAND | MF_CHECKED);
+updateWindowTitle();
 }}}
 
 int CALLBACK BrowseForFolderCallback(HWND hwnd,UINT uMsg,LPARAM lp, LPARAM pData)
@@ -2055,10 +2070,8 @@ break;
 case WM_USER+2000 :
 if (wParam<=0) {
 fillDeviceList();
-printf("Before = %d, %d\r\n", curInDevice, curOutDevice);
 curInDevice = BASS_RecordGetDevice();
 curOutDevice = BASS_GetDevice();
-printf("After = %d, %d\r\n", curInDevice, curOutDevice);
 auto(out2, outDevices.find(curOutDeviceName));
 auto(in2, inDevices.find(curOutDeviceName));
 if (in2!=inDevices.end()) switchInDevice(in2->second);
@@ -2338,7 +2351,7 @@ tstring str, tstr = it.artist.size()>0? toTString(it.artist) + TEXT(" - ") + toT
 wsnprintf(str, 512, TEXT("%d. %s -- 6player"), curSong+1, tstr.c_str());
 SetWindowText(win, str.c_str());
 if (playlistdlg) SendMessage(playlistdlg, WM_USER+10, curSong, -1);
-//if (curCasting>=0 && castingAutoTitle) BASS_Encode_CastSetTitle(curEncode, tstr.c_str(), NULL);
+if (curCasting>=0 && castAutoTitle) BASS_Encode_CastSetTitle(curEncode, toString(tstr).c_str(), NULL);
 }
 
 void addFileType (const string& desc, const string& ext, int ctype) {
@@ -2400,21 +2413,41 @@ else BASS_ChannelRemoveFX(targetHandle, e.hfx);
 e.hfx=NULL;
 }
 
+DWORD CALLBACK ZeroStreamProc (HSTREAM handle, float* buffer, DWORD length, void* unused) {
+for (int i=0, n=length/sizeof(float); i<n; i++) *(buffer++)=0;
+return length;
+}
+
 void stopMix () {
 BASS_Mixer_ChannelRemove(curCopyHandle);
 BASS_ChannelStop(curMixHandle);
+BASS_ChannelStop(curSilenceSyncHandle);
 BASS_StreamFree(curMixHandle);
 BASS_StreamFree(curCopyHandle);
+if (curFeedback) BASS_ChannelSetAttribute(curFeedback, BASS_ATTRIB_VOL, curRecVol);
 curMixHandle=NULL;
 curCopyHandle = NULL;
+curSilenceSyncHandle = NULL;
 }
 
 void startMix (void) {
 if (curMixHandle) stopMix();
+curSilenceSyncHandle = BASS_StreamCreate(44100, 2, BASS_SAMPLE_FLOAT | BASS_STREAM_AUTOFREE, ZeroStreamProc, 0);
+HSTREAM curSilenceCopyHandle = BASS_StreamCreateCopy(curSilenceSyncHandle, BASS_SAMPLE_FLOAT | BASS_STREAM_DECODE, 0);
+BASS_ChannelSetAttribute(curSilenceSyncHandle, BASS_ATTRIB_VOL, 0);
+BASS_ChannelSetAttribute(curSilenceCopyHandle, BASS_ATTRIB_VOL, 0);
+BASS_ChannelPlay(curSilenceSyncHandle, FALSE);
 curMixHandle = BASS_Mixer_StreamCreate(44100, 2, BASS_SAMPLE_FLOAT | BASS_STREAM_DECODE | BASS_MIXER_RESUME);
-if (curRecord) BASS_Mixer_StreamAddChannel(curMixHandle, curRecord, BASS_STREAM_AUTOFREE);
+BASS_Mixer_StreamAddChannel(curMixHandle, curSilenceCopyHandle, BASS_MIXER_LIMIT | BASS_STREAM_AUTOFREE);
+if (curRecord) {
+curRecCastHandle = BASS_StreamCreateCopy(curRecord, BASS_SAMPLE_FLOAT | BASS_STREAM_DECODE, 0);
+BASS_ChannelSetAttribute(curRecCastHandle, BASS_ATTRIB_VOL, curRecCastVol);
+BASS_Mixer_StreamAddChannel(curMixHandle, curRecCastHandle, BASS_STREAM_AUTOFREE);
+if (curFeedback&&castNoFeedback&&curCasting>=0) BASS_ChannelSetAttribute(curFeedback, BASS_ATTRIB_VOL, 0);
+}
 if (curHandle) {
 curCopyHandle = BASS_StreamCreateCopy(curHandle, BASS_SAMPLE_FLOAT | BASS_STREAM_DECODE, 0);
+BASS_ChannelSetAttribute(curCopyHandle, BASS_ATTRIB_VOL, curCastVol);
 BASS_Mixer_StreamAddChannel(curMixHandle, curCopyHandle, BASS_STREAM_AUTOFREE);
 }
 for (int i=0, n=effects.size(); i<n; i++) {
@@ -2426,19 +2459,20 @@ if (e.hfx) BASS_FXSetParameters(e.hfx, e.data);
 }
 
 BOOL CALLBACK recordproc (HRECORD hrec, const void* buf, DWORD len, HSTREAM hs) {
-static const float maxdiff = 0.1f;
-static float oldLevel = 1;
+static const float maxdiff = 0.035f, mindiff = -0.2f;
+static float prevLevel = 1.0f;
 BASS_StreamPutData(hs, buf, len);
-/*DWORD dLevel = BASS_ChannelGetLevel(hrec);
-float level = 1 - ((LOWORD(dLevel) + HIWORD(dLevel)) / 65536.0);
-level *= level;
-float diff = level-oldLevel;
-if (diff>maxdiff) diff=maxdiff;
-else if (diff<-maxdiff) diff=-maxdiff;
-level = oldLevel+diff;
-oldLevel=level;
+if (curAutoAdjustCastMusic) {
+DWORD dLevel = BASS_ChannelGetLevel(hrec);
+float level = 1.1f - ((LOWORD(dLevel) + HIWORD(dLevel)) / 65536.0);
+if (level>1) level=1;
+level*=level;
+if (level-prevLevel>maxdiff) level = prevLevel+maxdiff;
+else if (level-prevLevel<mindiff) level = prevLevel+mindiff;
+prevLevel=level;
 BASS_ChannelSetAttribute(curHandle, BASS_ATTRIB_VOL, curVol*level);
-BASS_ChannelSetAttribute(curCopyHandle, BASS_ATTRIB_VOL, curCastVol*level);*/
+BASS_ChannelSetAttribute(curCopyHandle, BASS_ATTRIB_VOL, curCastVol*level);
+}
 return TRUE;
 }
 
@@ -2454,11 +2488,10 @@ else BASS_ChannelSetAttribute(curFeedback, BASS_ATTRIB_VOL, curRecVol);
 setOutDevice(outDevice);
 curRecord = BASS_RecordStart(44100, 2, BASS_SAMPLE_FLOAT, recordproc, curFeedback);
 if (curMixHandle) {
-if (curFeedback2) { BASS_ChannelStop(curFeedback2); BASS_Mixer_ChannelRemove(curFeedback2); BASS_StreamFree(curFeedback2); }
-curFeedback2 = BASS_StreamCreateCopy(curRecord, BASS_SAMPLE_FLOAT | BASS_STREAM_DECODE, 0);
-BASS_ChannelSetAttribute(curFeedback2, BASS_ATTRIB_VOL, curRecCastVol);
-BASS_Mixer_ChannelFlags(curCopyHandle, BASS_MIXER_LIMIT, BASS_MIXER_LIMIT);
-BASS_Mixer_StreamAddChannel(curMixHandle, curFeedback2, BASS_STREAM_AUTOFREE);
+if (curRecCastHandle) { BASS_ChannelStop(curRecCastHandle); BASS_Mixer_ChannelRemove(curRecCastHandle); BASS_StreamFree(curRecCastHandle); }
+curRecCastHandle = BASS_StreamCreateCopy(curRecord, BASS_SAMPLE_FLOAT | BASS_STREAM_DECODE, 0);
+BASS_ChannelSetAttribute(curRecCastHandle, BASS_ATTRIB_VOL, curRecCastVol);
+BASS_Mixer_StreamAddChannel(curMixHandle, curRecCastHandle, BASS_STREAM_AUTOFREE);
 }
 if (curFeedback) BASS_ChannelPlay(curFeedback, FALSE);
 for (int i=0, n=effects.size(); i<n; i++) {
@@ -2505,11 +2538,9 @@ replace(cmdl, TEXT("%f"), toTString(curDecodeFn));
 replace(cmdl, TEXT("%t"), toTString(it.title));
 replace(cmdl, TEXT("%a"), toTString(it.artist));
 replace(cmdl, TEXT("%l"), toTString(it.album));
-printf("Command line = %ls\r\n", cmdl.c_str());
 if (curCasting>=0) flags |= BASS_ENCODE_NOHEAD | BASS_ENCODE_FP_16BIT;
 p->get(p, PP_ENC_FLAGS, &flags, sizeof(int));
 curEncode = BASS_Encode_Start(curMixHandle? curMixHandle : curHandle, (const char*)(cmdl.c_str()), flags | USE_UNICODE, NULL, NULL);
-printf("enc=%p, h=%p, mix=%p, copy=%p, encodedOn=%p, err=%d\r\n", curEncode, curHandle, curMixHandle, curCopyHandle, BASS_Encode_GetChannel(curEncode), BASS_ErrorGetCode());
 if (curEncode) {
 p->get(p, PP_ENC_PROC, (void*)curHandle, curEncode);
 DWORD threadId;
@@ -2521,7 +2552,6 @@ curDecodeFn.clear();
 }
 
 void startJingle (string fn) {
-BASS_Mixer_ChannelFlags(curCopyHandle, BASS_MIXER_LIMIT, BASS_MIXER_LIMIT);
 setOutDevice(jingleDevice);
 DWORD jingle = getStream(fn, BASS_SAMPLE_FX | BASS_STREAM_AUTOFREE);
 setOutDevice(outDevice);
@@ -2619,7 +2649,6 @@ else {
 BASS_ChannelSetSync(curHandle, BASS_SYNC_MIXTIME | BASS_SYNC_ONETIME | BASS_SYNC_SLIDE, 0, freeSong, NULL);
 BASS_ChannelSlideAttribute(curHandle, BASS_ATTRIB_VOL, 0.0f, crossFade);
 if (curCopyHandle) BASS_ChannelSlideAttribute(curCopyHandle, BASS_ATTRIB_VOL, 0.0f, crossFade);
-if (curMixHandle) BASS_Mixer_ChannelFlags(curCopyHandle, BASS_MIXER_LIMIT, BASS_MIXER_LIMIT);
 curHandle = NULL;
 }}
 
@@ -2736,8 +2765,8 @@ if (levelsdlg) SendDlgItemMessage(levelsdlg, 1001, TBM_SETPOS, TRUE, 200.0 * cur
 
 void setRecCastVol (float f) {
 curRecCastVol = minmax(0.0f,f,1.0f);
-if (curFeedback2==NULL) return;
-BASS_ChannelSetAttribute(curFeedback2, BASS_ATTRIB_VOL, curRecCastVol);
+if (curRecCastHandle==NULL) return;
+BASS_ChannelSetAttribute(curRecCastHandle, BASS_ATTRIB_VOL, curRecCastVol);
 if (levelsdlg) SendDlgItemMessage(levelsdlg, 1003, TBM_SETPOS, TRUE, 200.0 * curRecCastVol);
 }
 
@@ -2869,7 +2898,6 @@ startSongPreview(curSelection);
 }
 else if (msg==WM_INITDIALOG) {
 hook = SetWindowsHookEx(WH_KEYBOARD, openDialogHookHook, NULL, GetCurrentThreadId());
-printf("Hook = %p\r\n", hook);
 }
 else if (msg==WM_DESTROY) {
 if (hook) UnhookWindowsHookEx(hook);
@@ -3222,7 +3250,6 @@ ignoreUpdate=false;
 
 DWORD WINAPI encodeautoproc (LPVOID lpv) {
 DWORD handle = (DWORD)lpv;
-printf("encoded handle = %p\r\n", handle);
 Beep(1600,300);
 DWORD dummylen = 65536;
 char dummy[dummylen];
@@ -3654,7 +3681,6 @@ return stream;
 }
 
 DWORD getStream (string fn, DWORD mode) {
-printf("Load stream: %s\r\n", fn.c_str());
 DWORD stream = NULL;
 DWORD streamFlags = BASS_STREAMFLAGS;
 if (mode&BASS_SAMPLE_FX) streamFlags&=~BASS_STREAM_DECODE;
