@@ -20,7 +20,8 @@ static int quality = 4;
 #define FORMAT_FLAGS BASS_ENCODE_AUTOFREE;
 #define FORMAT_NAME "OGG Vorbis"
 #define FORMAT_EXT "*.ogg"
-#define FORMAT_MIME BASS_ENCODE_TYPE_OGG
+//#define FORMAT_MIME BASS_ENCODE_TYPE_OGG
+#define FORMAT_MIME "audio/ogg"
 
 BOOL EXPORT WINAPI DllMain (HINSTANCE h, DWORD r1, LPVOID r2) {
 hdll = h;
@@ -32,7 +33,7 @@ return snprintf(buf, bufmax, "oggenc.exe -Q -q %d -o \"%%f\" -t \"%%t\" -a \"%%a
 }
 
 static int getCommandLine2 (char* buf, int bufmax) {
-return snprintf(buf, bufmax, "oggenc.exe -r -Q -q %d -", quality);
+return snprintf(buf, bufmax, "oggenc.exe -r -B 16 -C 2 -R 44100 -Q -q %d -", quality);
 }
 
 static BOOL CALLBACK dlgproc (HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
@@ -61,9 +62,10 @@ DialogBoxParam(hdll, "dlg1", hwnd, dlgproc, NULL);
 static int encfunc (void* handle, int what, void* ptr, int size) {
 switch(what){
 case PP_DEFEX: returnstatic(FORMAT_EXT+2);
-case PP_ENC_QUALITY : return quality;
-case PP_MIMETYPE : returnstatic(FORMAT_MIME);
-case PP_ENC_FLAGS : return *(DWORD*)ptr = FORMAT_FLAGS; 
+case PP_MIMETYPE: return ptr? strncpy(ptr, FORMAT_MIME, size) :0;
+case PP_ENC_QUALITY : return 0;
+case PP_CAST_HEADERS: snprintf(ptr, size, "ice-bitrate: Quality %d\r\n", quality); return ptr;
+case PP_ENC_FLAGS : return *(DWORD*)ptr |= FORMAT_FLAGS; 
 case PP_ENC_COMMANDLINE: return getCommandLine(ptr, size);
 case PP_ENC_CAST_COMMANDLINE : return getCommandLine2(ptr, size);
 case PP_ENC_OPTIONS_DIALOG : openOptionsDialog(ptr); return 1;

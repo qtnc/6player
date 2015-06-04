@@ -34,6 +34,7 @@ extern "C" {
 #define PP_ENC_PROC 0x305
 #define PP_DEFEX 0x306
 #define PP_ENC_OPTIONS_DIALOG 0x307
+#define PP_CAST_HEADERS 0x308
 
 typedef struct {
 unsigned int type, flags;

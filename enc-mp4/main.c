@@ -77,8 +77,8 @@ static int aacFunc (void* handle, int what, void* ptr, int size) {
 switch(what){
 case PP_DEFEX: returnstatic(AAC_FORMAT_EXT+2);
 case PP_ENC_QUALITY: return quality;
-case PP_MIMETYPE : returnstatic(AAC_FORMAT_MIME);
-case PP_ENC_FLAGS : return *(DWORD*)ptr = FORMAT_FLAGS;
+case PP_MIMETYPE: return ptr? strncpy(ptr, AAC_FORMAT_MIME, size) :0;
+case PP_ENC_FLAGS : return *(DWORD*)ptr |= FORMAT_FLAGS;
 case PP_ENC_COMMANDLINE: return getCommandLine(ptr, size, 0);
 case PP_ENC_CAST_COMMANDLINE : return getCommandLine2(ptr, size);
 case PP_ENC_OPTIONS_DIALOG : openOptionsDialog(ptr); return 1;

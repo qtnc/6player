@@ -1992,15 +1992,18 @@ wsnprintf(addr, 512, TEXT("0.0.0.0:%d"), c.port);
 break;
 }
 if (curCasting>=0) { stopCasting(); Sleep(1000); }
-QCPLUGIN& e = *(encoders[c.type]);
+char mimetype[32]={0};
+char headers[4096]={0};
+QCPLUGIN& e = *(encoders[c.format]);
 curCasting = c.type;
 curDecode = c.format;
-const char* mimetype = e.get(NULL, PP_MIMETYPE, 0, 0);
+e.get(NULL, PP_MIMETYPE, mimetype, 31);
+e.get(NULL, PP_CAST_HEADERS, headers, 4095);
 int quality = e.get(NULL, PP_ENC_QUALITY, 0, 0);
 startMix();
 startEncode();
 if (
-(c.type!=2 && !BASS_Encode_CastInit(curEncode, toString(addr).c_str(), toString(c.password).c_str(), mimetype, toString(c.name).c_str(), toString(c.url).c_str(), toString(c.genre).c_str(), toString(c.desc).c_str(), NULL, quality, FALSE))
+(c.type!=2 && !BASS_Encode_CastInit(curEncode, toString(addr).c_str(), toString(c.password).c_str(), mimetype, toString(c.name).c_str(), toString(c.url).c_str(), toString(c.genre).c_str(), toString(c.desc).c_str(), headers, quality, FALSE))
 || (c.type==2 && !BASS_Encode_ServerInit(curEncode, toString(addr).c_str(), 88200, 88200, 0, NULL, NULL))
 ) {
 MessageBox(win, TEXT(ERROR), toTString(MSG_CASTFAIL).c_str(), MB_OK | MB_ICONSTOP);

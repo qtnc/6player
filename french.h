@@ -167,7 +167,7 @@
 #define MSG_TBPOSITION "Position"
 #define MSG_TBVOLUME "Volume"
 #define MSG_ABOUTTITLE L"\xC0 propos de 6Player"
-#define MSG_ABOUTTEXT "6Player, version 4.0 alpha\r\nCopyright © 2011-2014, QuentinC\r\nPlus d'infos sur http://quentinc.net/ "
+#define MSG_ABOUTTEXT "6Player, version 4.1 alpha\r\nCopyright \xA9 2011-2015, QuentinC\r\nPlus d'infos sur http://quentinc.net/ "
 
 #define MSG_FILEMENU "&Fichier"
 #define MSG_FILEOPEN "&Ouvrir...\aCtrl+O"
