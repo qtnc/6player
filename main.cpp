@@ -51,8 +51,8 @@ TCHAR* title;
 } progressinfo;
 
 typedef struct {
-int outDevice, inDevice, jingleDevice, feedbackDevice, previewDevice;
-bool useJingles, castNoFeedback, castAutoTitle, autoAdjustMusic;
+int outDevice, inDevice, jingleDevice, feedbackDevice, previewDevice, auxInDevice, auxInFeedbackDevice;
+bool useJingles, castNoFeedback, castNoAuxInFeedback, castAutoTitle, autoAdjustMusic;
 } optionsinfo;
 
 typedef struct {
@@ -161,6 +161,8 @@ bool startEffect (effectinfo& e) ;
 void stopEffect (effectinfo& e) ;
 void startRecord () ;
 void stopRecord () ;
+void startAuxIn();
+void stopAuxIn();
 void startEncode (void);
 void startMix (void) ;
 void stopMix (void) ;
@@ -191,19 +193,19 @@ vector<effectinfo> effects;
 vector<playlistitem> playlist;
 map<DWORD,string> midiInstruments;
 IniFile ini;
-DWORD curHandle = 0, curMixHandle=0, curRecord = 0, curFeedback=0, curRecCastHandle=0, curEncode=0, curCopyHandle=0, curPreviewHandle=0, curSilenceSyncHandle=0;
+DWORD curHandle = 0, curMixHandle=0, curRecord = 0, curFeedback=0, curRecCastHandle=0, curEncode=0, curCopyHandle=0, curPreviewHandle=0, curSilenceSyncHandle=0, curAuxIn=0, curAuxInFeedback=0, curAuxInCastHandle=0;
 int curDecode = -1, curCasting=-1;
 double curStreamLen = 0, curLoopStart=0;
 string curDecodeFn, curDecodeDir;
-BOOL ignoreUpdate=FALSE, keepDecode = FALSE, useJingles=false, castNoFeedback=true, castAutoTitle = TRUE, curAutoAdjustCastMusic=false;
+BOOL ignoreUpdate=FALSE, keepDecode = FALSE, useJingles=false, castNoFeedback=true, castNoAuxInFeedback=true, castAutoTitle = TRUE, curAutoAdjustCastMusic=false;
 bool playlistRevDir = FALSE, initialized = FALSE;
 HFX eqHfx[5]={0,0,0,0,0};
 DWORD bInitedDevices=0;
-int inDevice= -1, outDevice=1, previewDevice=1, feedbackDevice=1, jingleDevice=1;
+int inDevice= -1, auxInDevice= -1, outDevice=1, previewDevice=1, feedbackDevice=1, auxInFeedbackDevice=1, jingleDevice=1;
 int deviceSwitchCount=0;
 int crossFade = -6000, fxTarget=1;
 bool curLoop = FALSE, curRandom = false, curReverse = FALSE, curIntroMode = FALSE;
-double curVol = 0.35f, curRecVol=1.0f, curCastVol=1.0f, curRecCastVol=1.0f;
+double curVol = 0.35f, curRecVol=1.0f, curCastVol=1.0f, curRecCastVol=1.0f, curAuxInCastVol=1.0f, curAuxInVol=1.0f;
 double curSpeed = 1.0f;
 double curTransposition = 0;
 double curRate = 1.0f;
@@ -381,6 +383,7 @@ jingleDevice = findDevice(outDevices, ini.get<string>("devices.jingleOutput", ""
 inDevice = findDevice(inDevices, ini.get<string>("devices.input", ""), -1);
 useJingles = ini.get("casting.jingles", false);
 castNoFeedback = ini.get("casting.noFeedback",true);
+castNoAuxInFeedback = ini.get("casting.noAuxInFeedback",false);
 castAutoTitle = ini.get("casting.autoUpdateTitle", true);
 }
 
@@ -601,6 +604,7 @@ ini.put("devices.preview", findDevice(outDevices, previewDevice, "Default"));
 ini.put("devices.jingleOutput", findDevice(outDevices, jingleDevice, "Default"));
 ini.put("casting.jingles", useJingles);
 ini.put("casting.noFeedback", castNoFeedback);
+ini.put("casting.noAuxInFeedback", castNoAuxInFeedback);
 ini.put("casting.autoUpdateTitle", castAutoTitle);
 ini.save("player.conf");
 }
@@ -1566,7 +1570,7 @@ break;
 return FALSE;
 }
 
-void changeOutDevices (int out, int preview, int feedback, int jingle) {
+void changeOutDevices (int out, int preview, int feedback, int auxInFeedback, int jingle) {
 if (!setOutDevice(out)) return;
 if (curHandle) BASS_ChannelSetDevice(curHandle, out);
 if (curHandle) BASS_ChannelSetDevice(BASS_FX_TempoGetSource(curHandle), out);
@@ -1579,21 +1583,31 @@ if (curFeedback) {
 setOutDevice(feedback);
 BASS_ChannelSetDevice(curFeedback, feedback);
 }
-#define F(o) if(o!=out && o!=jingle && o!=preview && o!=feedback) freeOutDevice(o);
-F(outDevice) F(previewDevice) F(jingleDevice) F(feedbackDevice)
+if (curAuxInFeedback) {
+setOutDevice(auxInFeedback);
+BASS_ChannelSetDevice(curAuxInFeedback, auxInFeedback);
+}
+#define F(o) if(o!=out && o!=jingle && o!=preview && o!=feedback && o!=auxInFeedback) freeOutDevice(o);
+F(outDevice) F(previewDevice) F(jingleDevice) F(feedbackDevice) F(auxInFeedbackDevice)
 #undef F
 BASS_SetDevice(out);
 outDevice = out;
 feedbackDevice = feedback;
+auxInFeedbackDevice = auxInFeedback;
 previewDevice = preview;
 jingleDevice = jingle;
 }
 
-void changeInDevice (int in) {
+void changeInDevices (int in, int auxIn) {
 inDevice = in;
+auxInDevice=auxIn;
 if (curRecord) {
 stopRecord();
 startRecord();
+}
+if (curAuxIn) {
+stopAuxIn();
+startAuxIn();
 }}
 
 BOOL OptionsDevicesDlgProc (HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
@@ -1606,28 +1620,32 @@ fillOutDevices(NULL, &outDevices);
 fillInDevices(NULL, &inDevices);
 outDevices[""] = 1;
 inDevices[""] = -1;
-HWND hOut = GetDlgItem(hwnd,1001), hPre = GetDlgItem(hwnd,1002), hIn = GetDlgItem(hwnd,1003), hFeed=GetDlgItem(hwnd,1004), hJingle=GetDlgItem(hwnd,1005);
+HWND hOut = GetDlgItem(hwnd,1001), hPre = GetDlgItem(hwnd,1002), hIn = GetDlgItem(hwnd,1003), hFeed=GetDlgItem(hwnd,1004), hJingle=GetDlgItem(hwnd,1005), hAuxIn = GetDlgItem(hwnd,1006), hAuxInFeed = GetDlgItem(hwnd,1007);
 int j=-1;
 SendMessage(hOut, CB_RESETCONTENT, 0, 0);
 SendMessage(hIn, CB_RESETCONTENT, 0, 0);
 SendMessage(hPre, CB_RESETCONTENT, 0, 0);
 SendMessage(hFeed, CB_RESETCONTENT, 0, 0);
 SendMessage(hJingle, CB_RESETCONTENT, 0, 0);
+SendMessage(hAuxIn, CB_RESETCONTENT, 0, 0);
+SendMessage(hAuxInFeed, CB_RESETCONTENT, 0, 0);
 for (auto it: outDevices) {
-printf("%d=%s\r\n", it.second, it.first.c_str());
 string sName = it.first;
 if (sName=="") sName = MSG_DEFAULTDEVICE;
 SendMessage(hOut, CB_ADDSTRING, 0, toTString(sName).c_str());
 SendMessage(hPre, CB_ADDSTRING, 0, toTString(sName).c_str());
 SendMessage(hFeed, CB_ADDSTRING, 0, toTString(sName).c_str());
+SendMessage(hAuxInFeed, CB_ADDSTRING, 0, toTString(sName).c_str());
 SendMessage(hJingle, CB_ADDSTRING, 0, toTString(sName).c_str());
 SendMessage(hOut, CB_SETITEMDATA, ++j, it.second);
 SendMessage(hPre, CB_SETITEMDATA, j, it.second);
 SendMessage(hFeed, CB_SETITEMDATA, j, it.second);
+SendMessage(hAuxInFeed, CB_SETITEMDATA, j, it.second);
 SendMessage(hJingle, CB_SETITEMDATA, j, it.second);
 if (o->outDevice==it.second) SendMessage(hOut, CB_SETCURSEL, j, 0);
 if (o->previewDevice==it.second) SendMessage(hPre, CB_SETCURSEL, j, 0);
 if (o->feedbackDevice==it.second) SendMessage(hFeed, CB_SETCURSEL, j, 0);
+if (o->auxInFeedbackDevice==it.second) SendMessage(hAuxInFeed, CB_SETCURSEL, j, 0);
 if (o->jingleDevice==it.second) SendMessage(hJingle, CB_SETCURSEL, j, 0);
 }
 j=0;
@@ -1635,11 +1653,18 @@ SendMessage(hIn, CB_RESETCONTENT, 0, 0);
 SendMessage(hIn, CB_ADDSTRING, 0, (LPARAM)toTString(MSG_DEFAULTDEVICE).c_str());
 SendMessage(hIn, CB_SETITEMDATA, 0, -1);
 SendMessage(hIn, CB_SETCURSEL, 0, 0);
+SendMessage(hAuxIn, CB_RESETCONTENT, 0, 0);
+SendMessage(hAuxIn, CB_ADDSTRING, 0, (LPARAM)toTString(MSG_DEFAULTDEVICE).c_str());
+SendMessage(hAuxIn, CB_SETITEMDATA, 0, -1);
+SendMessage(hAuxIn, CB_SETCURSEL, 0, 0);
 for (auto it: inDevices) {
 if (it.first.size()<=0) continue;
 SendMessage(hIn, CB_ADDSTRING, 0, toTString(it.first).c_str());
 SendMessage(hIn, CB_SETITEMDATA, ++j, it.second);
+SendMessage(hAuxIn, CB_ADDSTRING, 0, toTString(it.first).c_str());
+SendMessage(hAuxIn, CB_SETITEMDATA, ++j, it.second);
 if (o->inDevice==it.second) SendMessage(hIn, CB_SETCURSEL, j, 0);
+if (o->auxInDevice==it.second) SendMessage(hAuxIn, CB_SETCURSEL, j, 0);
 }
 EnableWindow(hJingle, o->useJingles);
 SetFocus(hOut);
@@ -1662,6 +1687,8 @@ o->previewDevice = SendDlgItemMessage(hwnd, 1002, CB_GETITEMDATA, SendDlgItemMes
 o->inDevice = SendDlgItemMessage(hwnd, 1003, CB_GETITEMDATA, SendDlgItemMessage(hwnd, 1003, CB_GETCURSEL, 0, 0), 0);
 o->feedbackDevice = SendDlgItemMessage(hwnd, 1004, CB_GETITEMDATA, SendDlgItemMessage(hwnd, 1004, CB_GETCURSEL, 0, 0), 0);
 o->jingleDevice = SendDlgItemMessage(hwnd, 1005, CB_GETITEMDATA, SendDlgItemMessage(hwnd, 1005, CB_GETCURSEL, 0, 0), 0);
+o->auxInDevice = SendDlgItemMessage(hwnd, 1006, CB_GETITEMDATA, SendDlgItemMessage(hwnd, 1006, CB_GETCURSEL, 0, 0), 0);
+o->auxInFeedbackDevice = SendDlgItemMessage(hwnd, 1007, CB_GETITEMDATA, SendDlgItemMessage(hwnd, 1007, CB_GETCURSEL, 0, 0), 0);
 SetWindowLong(hwnd, DWL_MSGRESULT, PSNRET_NOERROR);
 return TRUE;
 }break;
@@ -1722,6 +1749,7 @@ CheckDlgButton(hwnd, 1001, o->useJingles? BST_CHECKED : BST_UNCHECKED);
 CheckDlgButton(hwnd, 1002, o->castNoFeedback? BST_CHECKED : BST_UNCHECKED);
 CheckDlgButton(hwnd, 1003, o->castAutoTitle? BST_CHECKED : BST_UNCHECKED);
 CheckDlgButton(hwnd, 1004, o->autoAdjustMusic? BST_CHECKED : BST_UNCHECKED);
+CheckDlgButton(hwnd, 1005, o->castNoAuxInFeedback? BST_CHECKED : BST_UNCHECKED);
 break;
 case WM_COMMAND :
 switch(LOWORD(wp)) {
@@ -1738,6 +1766,7 @@ o->castAutoTitle = IsDlgButtonChecked(hwnd, 1003)==BST_CHECKED;
 o->castNoFeedback = IsDlgButtonChecked(hwnd, 1002)==BST_CHECKED;
 o->useJingles = IsDlgButtonChecked(hwnd, 1001)==BST_CHECKED;
 o->autoAdjustMusic = IsDlgButtonChecked(hwnd, 1004)==BST_CHECKED;
+o->castNoAuxInFeedback = IsDlgButtonChecked(hwnd, 1005)==BST_CHECKED;
 SetWindowLong(hwnd, DWL_MSGRESULT, PSNRET_NOERROR);
 return TRUE;
 }break;
@@ -1805,13 +1834,17 @@ void optionsDialog (int startPage) {
 const int nPages = 5;
 optionsinfo o;
 o.inDevice = inDevice;
+o.auxInDevice = auxInDevice;
+o.auxInFeedbackDevice = auxInFeedbackDevice;
 o.outDevice = outDevice;
 o.jingleDevice = jingleDevice;
 o.previewDevice = previewDevice;
 o.feedbackDevice = feedbackDevice;
+o.auxInFeedbackDevice = auxInFeedbackDevice;
 o.useJingles = useJingles;
 o.castAutoTitle = castAutoTitle;
 o.castNoFeedback = castNoFeedback;
+o.castNoAuxInFeedback = castNoAuxInFeedback;
 o.autoAdjustMusic = curAutoAdjustCastMusic;
 PROPSHEETHEADER psh;
 PROPSHEETPAGE pages[nPages];
@@ -1870,11 +1903,12 @@ psh.nPages = nPages;
 psh.nStartPage = startPage;
 psh.ppsp = pages;
 if (PropertySheet(&psh)) {
-changeOutDevices(o.outDevice, o.previewDevice, o.feedbackDevice, o.jingleDevice);
-changeInDevice(o.inDevice);
+changeOutDevices(o.outDevice, o.previewDevice, o.feedbackDevice, o.auxInFeedbackDevice, o.jingleDevice);
+changeInDevices(o.inDevice, o.auxInDevice);
 useJingles = o.useJingles;
 castAutoTitle = o.castAutoTitle;
 castNoFeedback = o.castNoFeedback;
+castNoAuxInFeedback = o.castNoAuxInFeedback;
 curAutoAdjustCastMusic = o.autoAdjustMusic;
 }}
 
@@ -2230,6 +2264,7 @@ break;
 case IDM_EFF_MODE1 :
 case IDM_EFF_MODE2 :
 case IDM_EFF_MODE3 :
+case IDM_EFF_MODE4 :
 fxTarget = 1+n -IDM_EFF_MODE1;
 CheckMenuRadioItem(GetSubMenu(effectsMenu,0), 0, 3, fxTarget -1, MF_BYPOSITION);
 break;
@@ -2254,6 +2289,11 @@ case IDM_RECORD:
 if (curRecord) stopRecord();
 else startRecord();
 CheckMenuItem(lect, IDM_RECORD, MF_BYCOMMAND | (curRecord? MF_CHECKED : MF_UNCHECKED));
+break;
+case IDM_AUXRECORD:
+if (curAuxIn) stopAuxIn();
+else startAuxIn();
+CheckMenuItem(lect, IDM_AUXRECORD, MF_BYCOMMAND | (curAuxIn? MF_CHECKED : MF_UNCHECKED));
 break;
 case IDM_INDEXPLAYLIST: doIndexAllPlaylist(); break;
 case IDM_OPTIONS: optionsDialog(); break;
@@ -2385,6 +2425,7 @@ DWORD targetHandle = 0;
 if (e.curTarget==1 && curHandle) targetHandle = curHandle;
 else if (e.curTarget ==2 && curRecord)  targetHandle = curRecord;
 else if (e.curTarget==3 && curMixHandle) targetHandle = curMixHandle;
+else if (e.curTarget ==4 && curAuxIn)  targetHandle = curAuxIn;
 if (e.type==0x8000000) { // VST
 e.hfx = BASS_VST_ChannelSetDSP(targetHandle, e.data+84, 0, 1);
 if (!e.hfx) e.hfx=-1;
@@ -2408,6 +2449,7 @@ DWORD targetHandle = 0;
 if (e.curTarget==1) targetHandle = curHandle;
 else if (e.curTarget==2) targetHandle = curRecord;
 else if (e.curTarget==3) targetHandle = curMixHandle;
+else if (e.curTarget==4) targetHandle = curAuxIn;
 if (e.type==0x8000000) BASS_VST_ChannelRemoveDSP(targetHandle, e.hfx);
 else BASS_ChannelRemoveFX(targetHandle, e.hfx);
 e.hfx=NULL;
@@ -2476,6 +2518,11 @@ BASS_ChannelSetAttribute(curCopyHandle, BASS_ATTRIB_VOL, curCastVol*level);
 return TRUE;
 }
 
+BOOL CALLBACK recordproc2 (HRECORD hrec, const void* buf, DWORD len, HSTREAM hs) {
+BASS_StreamPutData(hs, buf, len);
+return true;
+}
+
 void startRecord () {
 if (curRecord) stopRecord();
 BASS_RecordInit(inDevice);
@@ -2497,8 +2544,7 @@ if (curFeedback) BASS_ChannelPlay(curFeedback, FALSE);
 for (int i=0, n=effects.size(); i<n; i++) {
 effectinfo& e = effects[i];
 if (e.hfx&&e.curTarget==2) {
-e.hfx = BASS_ChannelSetFX(curRecord, e.type, 1);
-if (e.hfx) BASS_FXSetParameters(e.hfx, e.data);
+startEffect(e);
 }}
 }
 
@@ -2506,10 +2552,43 @@ void stopRecord () {
 BASS_ChannelSetAttribute(curHandle, BASS_ATTRIB_VOL, curVol);
 BASS_ChannelSetAttribute(curCopyHandle, BASS_ATTRIB_VOL, curCastVol);
 BASS_ChannelStop(curRecord);
-if (curMixHandle) BASS_Mixer_ChannelRemove(curRecord);
+if (curMixHandle) BASS_Mixer_ChannelRemove(curRecCastHandle);
 if (curFeedback) BASS_ChannelStop(curFeedback);
 curFeedback = NULL;
 curRecord = NULL;
+}
+
+void startAuxIn () {
+if (curAuxIn) stopAuxIn();
+BASS_RecordInit(auxInDevice);
+BASS_RecordSetDevice(auxInDevice);
+auxInDevice = BASS_RecordGetDevice();
+setOutDevice(auxInFeedbackDevice);
+curAuxInFeedback = BASS_StreamCreate(44100, 2, BASS_SAMPLE_FLOAT, STREAMPROC_PUSH, NULL);
+if (curAuxInFeedback&&castNoAuxInFeedback&&curCasting>=0) BASS_ChannelSetAttribute(curAuxInFeedback, BASS_ATTRIB_VOL, 0);
+else BASS_ChannelSetAttribute(curAuxInFeedback, BASS_ATTRIB_VOL, curAuxInVol);
+setOutDevice(outDevice);
+curAuxIn = BASS_RecordStart(44100, 2, BASS_SAMPLE_FLOAT, recordproc2, curAuxInFeedback);
+if (curMixHandle) {
+if (curAuxInCastHandle) { BASS_ChannelStop(curAuxInCastHandle); BASS_Mixer_ChannelRemove(curAuxInCastHandle); BASS_StreamFree(curAuxInCastHandle); }
+curAuxInCastHandle = BASS_StreamCreateCopy(curAuxIn, BASS_SAMPLE_FLOAT | BASS_STREAM_DECODE, 0);
+BASS_ChannelSetAttribute(curAuxInCastHandle, BASS_ATTRIB_VOL, curAuxInCastVol);
+BASS_Mixer_StreamAddChannel(curMixHandle, curAuxInCastHandle, BASS_STREAM_AUTOFREE);
+}
+if (curAuxInFeedback) BASS_ChannelPlay(curAuxInFeedback, FALSE);
+for (int i=0, n=effects.size(); i<n; i++) {
+effectinfo& e = effects[i];
+if (e.hfx&&e.curTarget==4) {
+startEffect(e);
+}}
+}
+
+void stopAuxIn () {
+BASS_ChannelStop(curAuxIn);
+if (curMixHandle) BASS_Mixer_ChannelRemove(curAuxInCastHandle);
+if (curAuxInFeedback) BASS_ChannelStop(curAuxInFeedback);
+curAuxInFeedback = NULL;
+curAuxIn = NULL;
 }
 
 void startEncode (void) {
@@ -2768,6 +2847,20 @@ curRecCastVol = minmax(0.0f,f,1.0f);
 if (curRecCastHandle==NULL) return;
 BASS_ChannelSetAttribute(curRecCastHandle, BASS_ATTRIB_VOL, curRecCastVol);
 if (levelsdlg) SendDlgItemMessage(levelsdlg, 1003, TBM_SETPOS, TRUE, 200.0 * curRecCastVol);
+}
+
+void setAuxInVol (float f) {
+curAuxInVol = minmax(0.0f,f,1.0f);
+if (curAuxInFeedback==NULL) return;
+BASS_ChannelSetAttribute(curAuxInFeedback, BASS_ATTRIB_VOL, curAuxInVol);
+if (levelsdlg) SendDlgItemMessage(levelsdlg, 1004, TBM_SETPOS, TRUE, 200.0 * curAuxInVol);
+}
+
+void setAuxInCastVol (float f) {
+curAuxInCastVol = minmax(0.0f,f,1.0f);
+if (curAuxInCastHandle==NULL) return;
+BASS_ChannelSetAttribute(curAuxInCastHandle, BASS_ATTRIB_VOL, curAuxInCastVol);
+if (levelsdlg) SendDlgItemMessage(levelsdlg, 1005, TBM_SETPOS, TRUE, 200.0 * curAuxInCastVol);
 }
 
 void setSongVol (float f) {
