@@ -146,10 +146,12 @@ void setPitch (DWORD, float) ;
 float getPitch (DWORD) ;
 float setVol (DWORD, float) ;
 float getVol (DWORD) ;
-void setSongVol (float) ;
-void setRecVol (float) ;
-void setCastVol (float) ;
-void setRecCastVol (float) ;
+void setSongVol (float, int=0) ;
+void setRecVol (float, bool=true) ;
+void setCastVol (float, bool=true) ;
+void setRecCastVol (float, bool=true) ;
+void setAuxInVol (float, bool=true) ;
+void setAuxInCastVol (float, bool=true) ;
 void setSongSpeed (float ) ;
 void setSongPitch (float) ;
 void setSongRate (float) ;
@@ -167,7 +169,7 @@ void startEncode (void);
 void startMix (void) ;
 void stopMix (void) ;
 void updateInfo () ;
-DWORD WINAPI encodeautoproc (LPVOID);
+DWORD WINAPI encodeautoproc (DWORD);
 tstring getPlaylistItemText (int index) ;
 bool acceptPlaylistItem (const playlistitem& it, const string& flt) ;
 playlistitem& fillMetadata (playlistitem&, DWORD) ;
@@ -205,7 +207,7 @@ int inDevice= -1, auxInDevice= -1, outDevice=1, previewDevice=1, feedbackDevice=
 int deviceSwitchCount=0;
 int crossFade = -6000, fxTarget=1;
 bool curLoop = FALSE, curRandom = false, curReverse = FALSE, curIntroMode = FALSE;
-double curVol = 0.35f, curRecVol=1.0f, curCastVol=1.0f, curRecCastVol=1.0f, curAuxInCastVol=1.0f, curAuxInVol=1.0f;
+double curVol = 0.35f, curRecVol=1.0f, curCastVol=1.0f, curRecCastVol=1.0f, curAuxInCastVol=1.0f, curAuxInVol=1.0f, curJingleVol=1.0f, curJingleCastVol=1.0f;
 double curSpeed = 1.0f;
 double curTransposition = 0;
 double curRate = 1.0f;
@@ -367,8 +369,12 @@ curReverse = ini.get("play.reverse", false);
 curIntroMode = ini.get("play.introMode", false);
 curVol = ini.get("play.volume", curVol);
 curRecVol = ini.get("play.recVolume", curRecVol);
+curJingleVol = ini.get("play.jingleVolume", curJingleVol);
+curAuxInVol = ini.get("play.auxInVolume", curAuxInVol);
 curCastVol = ini.get("casting.outVolume", curCastVol);
 curRecCastVol = ini.get("casting.recVolume", curRecCastVol);
+curJingleCastVol = ini.get("casting.jingleVolume", curJingleCastVol);
+curAuxInCastVol = ini.get("casting.auxInVolume", curAuxInCastVol);
 curAutoAdjustCastMusic = ini.get("casting.autoAdjustMusic", false);
 curSpeed = ini.get("play.speed", 1.0);
 curTransposition = ini.get("play.pitch", 0.0);
@@ -589,8 +595,12 @@ ini.put("play.introMode", curIntroMode);
 ini.put("casting.autoAdjustMusic", curAutoAdjustCastMusic);
 ini.put("play.volume", curVol);
 ini.put("play.recVolume", curRecVol);
+ini.put("play.jingleVolume", curJingleVol);
+ini.put("play.auxInVolume", curAuxInVol);
 ini.put("casting.outVolume", curCastVol);
 ini.put("casting.recVolume", curRecCastVol);
+ini.put("casting.jingleVolume", curJingleCastVol);
+ini.put("casting.auxInVolume", curAuxInCastVol);
 ini.put("play.speed", curSpeed);
 ini.put("play.pitch", curTransposition);
 ini.put("play.rate", curRate);
@@ -1262,7 +1272,7 @@ return FALSE;
 BOOL LevelsPanelDlgProc (HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 switch(msg){
 case WM_INITDIALOG : {
-for (int i=1000; i<=1003; i++) {
+for (int i=1000; i<=1007; i++) {
 HWND h = GetDlgItem(hwnd,i);
 SendMessage(h, TBM_SETRANGEMIN, FALSE, 0);
 SendMessage(h, TBM_SETRANGEMAX, FALSE, 200);
@@ -1273,6 +1283,10 @@ SendDlgItemMessage(hwnd, 1000, TBM_SETPOS, TRUE, 200.0 * curVol);
 SendDlgItemMessage(hwnd, 1001, TBM_SETPOS, TRUE, 200.0 * curRecVol);
 SendDlgItemMessage(hwnd, 1002, TBM_SETPOS, TRUE, 200.0 * curCastVol);
 SendDlgItemMessage(hwnd, 1003, TBM_SETPOS, TRUE, 200.0 * curRecCastVol);
+SendDlgItemMessage(hwnd, 1004, TBM_SETPOS, TRUE, 200.0 * curAuxInVol);
+SendDlgItemMessage(hwnd, 1005, TBM_SETPOS, TRUE, 200.0 * curAuxInCastVol);
+SendDlgItemMessage(hwnd, 1006, TBM_SETPOS, TRUE, 200.0 * curJingleVol);
+SendDlgItemMessage(hwnd, 1007, TBM_SETPOS, TRUE, 200.0 * curJingleCastVol);
 SetFocus(GetDlgItem(hwnd,1000));
 }break;
 case WM_COMMAND: switch(LOWORD(wp)){
@@ -1284,10 +1298,14 @@ case WM_HSCROLL : {
 int ival = SendMessage(lp, TBM_GETPOS, 0, 0);
 double val = ival/200.0;
 switch(GetDlgCtrlID(lp)) {
-case 1000: setSongVol(val); break;
-case 1001: setRecVol(val); break;
-case 1002: setCastVol(val); break;
-case 1003: setRecCastVol(val); break;
+case 1000: setSongVol(val, 2); break;
+case 1001: setRecVol(val, false); break;
+case 1002: setCastVol(val, false); break;
+case 1003: setRecCastVol(val, false); break;
+case 1004: setAuxInVol(val, false); break;
+case 1005: setAuxInCastVol(val, false); break;
+case 1006: curJingleVol = val; break;
+case 1007: curJingleCastVol = val; break;
 }}break;
 break;
 default: break;
@@ -1568,6 +1586,14 @@ SetDlgItemText(hwnd, 1001, (const TCHAR*)lp);
 break;
 }
 return FALSE;
+}
+
+void changeCastTitle () {
+if (!curEncode) return;
+const TCHAR* title = inputDialog(MSG_CASTSETTITLE1, MSG_CASTSETTITLE2, L"");
+if (!title) return;
+BASS_Encode_CastSetTitle(curEncode, toString(title).c_str(), NULL);
+free(title);
 }
 
 void changeOutDevices (int out, int preview, int feedback, int auxInFeedback, int jingle) {
@@ -2098,7 +2124,7 @@ ctrlDown = shiftDown = FALSE;
 SetFocus(lbl);
 }break;
 case WM_HSCROLL :
-if (lParam==tbVolume) setSongVol( SendMessage(tbVolume, TBM_GETPOS, 0, 0) /200.0);
+if (lParam==tbVolume) setSongVol( SendMessage(tbVolume, TBM_GETPOS, 0, 0) /200.0, 4);
 else if (lParam==tbSeek) seekSong( SendMessage(tbSeek, TBM_GETPOS, 0, 0) /1000.0, FALSE);
 break;
 /*case WM_DEVICECHANGE :
@@ -2298,6 +2324,7 @@ if (curAuxIn) stopAuxIn();
 else startAuxIn();
 CheckMenuItem(lect, IDM_AUXRECORD, MF_BYCOMMAND | (curAuxIn? MF_CHECKED : MF_UNCHECKED));
 break;
+case IDM_CASTSETTITLE: changeCastTitle(); break;
 case IDM_INDEXPLAYLIST: doIndexAllPlaylist(); break;
 case IDM_OPTIONS: optionsDialog(); break;
 case IDM_OPTIONS_DEVICES: optionsDialog(1); break;
@@ -2595,7 +2622,6 @@ curAuxIn = NULL;
 }
 
 void startEncode (void) {
-Beep(800,300);
 LPQCPLUGIN p = encoders[curDecode];
 DWORD flags = 0;
 p->get(p, PP_ENC_FLAGS, &flags, sizeof(DWORD));
@@ -2626,7 +2652,7 @@ curEncode = BASS_Encode_Start(curMixHandle? curMixHandle : curHandle, (const cha
 if (curEncode) {
 p->get(p, PP_ENC_PROC, (void*)curHandle, curEncode);
 DWORD threadId;
-CreateThread(NULL, 0, encodeautoproc, (LPVOID)(curMixHandle? curMixHandle:curHandle), 0, &threadId);
+CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)encodeautoproc, (LPVOID)(curMixHandle? curMixHandle:curHandle), 0, &threadId);
 }
 else MessageBox(win, TEXT(ERROR), toTString(MSG_ENCODEFAIL).c_str(), MB_OK | MB_ICONSTOP);
 if (!keepDecode) curDecode = -1;
@@ -2638,8 +2664,8 @@ setOutDevice(jingleDevice);
 DWORD jingle = getStream(fn, BASS_SAMPLE_FX | BASS_STREAM_AUTOFREE);
 setOutDevice(outDevice);
 DWORD jingleCopy = BASS_StreamCreateCopy(jingle, BASS_SAMPLE_FLOAT | BASS_STREAM_DECODE, 0);
-BASS_ChannelSetAttribute(jingle, BASS_ATTRIB_VOL, curVol);
-BASS_ChannelSetAttribute(jingleCopy, BASS_ATTRIB_VOL, curCastVol);
+BASS_ChannelSetAttribute(jingle, BASS_ATTRIB_VOL, curJingleVol);
+BASS_ChannelSetAttribute(jingleCopy, BASS_ATTRIB_VOL, curJingleCastVol);
 BASS_Mixer_StreamAddChannel(curMixHandle, jingleCopy, BASS_STREAM_AUTOFREE);
 BASS_ChannelPlay(jingle,TRUE);
 }
@@ -2821,59 +2847,58 @@ BASS_ChannelSetAttribute(h, BASS_ATTRIB_TEMPO_PITCH, minmax(-60.0f,f,60.0f));
 
 void setPreviewSongVol (float f) {
 if (curPreviewHandle) {
-float vol = curVol;
+float vol = 1.0f;
 BASS_ChannelGetAttribute(curPreviewHandle, BASS_ATTRIB_VOL, &vol);
 vol+=f;
-if (vol>1) vol=0;
+if (vol>1.0f) vol=1.0f;
 if (vol<0) vol=0;
 BASS_ChannelSetAttribute(curPreviewHandle, BASS_ATTRIB_VOL, vol);
 }
 else setSongVol(curVol +f);
 }
 
-void setCastVol (float f) {
+void setCastVol (float f, bool levupd) {
 curCastVol = minmax(0.0f,f,1.0f);
 if (curCopyHandle==NULL) return;
 BASS_ChannelSetAttribute(curCopyHandle, BASS_ATTRIB_VOL, curCastVol);
-if (levelsdlg) SendDlgItemMessage(levelsdlg, 1002, TBM_SETPOS, TRUE, 200.0 * curCastVol);
+if (levelsdlg&&levupd) SendDlgItemMessage(levelsdlg, 1002, TBM_SETPOS, TRUE, 200.0 * curCastVol);
 }
 
-void setRecVol (float f) {
+void setRecVol (float f, bool levupd) {
 curRecVol = minmax(0.0f,f,1.0f);
 if (curFeedback==NULL) return;
 BASS_ChannelSetAttribute(curFeedback, BASS_ATTRIB_VOL, curRecVol);
-if (levelsdlg) SendDlgItemMessage(levelsdlg, 1001, TBM_SETPOS, TRUE, 200.0 * curRecVol);
+if (levelsdlg&&levupd) SendDlgItemMessage(levelsdlg, 1001, TBM_SETPOS, TRUE, 200.0 * curRecVol);
 }
 
-void setRecCastVol (float f) {
+void setRecCastVol (float f, bool levupd) {
 curRecCastVol = minmax(0.0f,f,1.0f);
 if (curRecCastHandle==NULL) return;
 BASS_ChannelSetAttribute(curRecCastHandle, BASS_ATTRIB_VOL, curRecCastVol);
-if (levelsdlg) SendDlgItemMessage(levelsdlg, 1003, TBM_SETPOS, TRUE, 200.0 * curRecCastVol);
+if (levelsdlg&&levupd) SendDlgItemMessage(levelsdlg, 1003, TBM_SETPOS, TRUE, 200.0 * curRecCastVol);
 }
 
-void setAuxInVol (float f) {
+void setAuxInVol (float f, bool levupd) {
 curAuxInVol = minmax(0.0f,f,1.0f);
 if (curAuxInFeedback==NULL) return;
 BASS_ChannelSetAttribute(curAuxInFeedback, BASS_ATTRIB_VOL, curAuxInVol);
-if (levelsdlg) SendDlgItemMessage(levelsdlg, 1004, TBM_SETPOS, TRUE, 200.0 * curAuxInVol);
+if (levelsdlg&&levupd) SendDlgItemMessage(levelsdlg, 1004, TBM_SETPOS, TRUE, 200.0 * curAuxInVol);
 }
 
-void setAuxInCastVol (float f) {
+void setAuxInCastVol (float f, bool levupd) {
 curAuxInCastVol = minmax(0.0f,f,1.0f);
 if (curAuxInCastHandle==NULL) return;
 BASS_ChannelSetAttribute(curAuxInCastHandle, BASS_ATTRIB_VOL, curAuxInCastVol);
-if (levelsdlg) SendDlgItemMessage(levelsdlg, 1005, TBM_SETPOS, TRUE, 200.0 * curAuxInCastVol);
+if (levelsdlg&&levupd) SendDlgItemMessage(levelsdlg, 1005, TBM_SETPOS, TRUE, 200.0 * curAuxInCastVol);
 }
 
-void setSongVol (float f) {
+void setSongVol (float f, int upd) {
 curVol = minmax(0.0f,f,1.0f);
 if (curHandle==NULL) return;
 BASS_ChannelSetAttribute(curHandle, BASS_ATTRIB_VOL, curVol);
-if (levelsdlg) SendDlgItemMessage(levelsdlg, 1000, TBM_SETPOS, TRUE, 200.0 * curVol);
-SendMessage(tbVolume, TBM_SETPOS, TRUE, 200.0 * curVol);
+if (levelsdlg&&!(upd&2)) SendDlgItemMessage(levelsdlg, 1000, TBM_SETPOS, TRUE, 200.0 * curVol);
+if (!(upd&4)) SendMessage(tbVolume, TBM_SETPOS, TRUE, 200.0 * curVol);
 }
-
 
 void setSongSpeed (float f) {
 if (f>10) f=10;
@@ -3344,15 +3369,12 @@ SendMessage(tbSeek, TBM_SETPOS, TRUE, 1000.0 * dpos);
 ignoreUpdate=false;
 }
 
-DWORD WINAPI encodeautoproc (LPVOID lpv) {
-DWORD handle = (DWORD)lpv;
-Beep(1600,300);
+DWORD WINAPI encodeautoproc (DWORD handle) {
+if (sayString) sayString(MSG_ENCODESTARTED, false);
 DWORD dummylen = 65536;
 char dummy[dummylen];
 while(BASS_ChannelIsActive(handle) && BASS_Encode_IsActive(curEncode)) if (BASS_ChannelGetData(handle, dummy, dummylen)<dummylen) Sleep(1);
-printf("Error=%d\r\n", BASS_ErrorGetCode());
-printf("Activity: %d, %d\r\n", BASS_Encode_IsActive(curEncode), BASS_ChannelIsActive(handle));
-Beep(3200,300);
+if (sayString) sayString(MSG_ENCODESTOPPED, false);
 BASS_Encode_StopEx(handle,TRUE);
 if (curMixHandle) stopMix();
 curEncode=0;

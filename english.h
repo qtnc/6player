@@ -168,7 +168,7 @@
 #define MSG_FILEINFO4 "Properties\aF3"
 #define MSG_FILESAVEALL "E&xport entire playlist"
 #define MSG_FILESAVEALL2 "Export entire playlist"
-#define MSG_FILEOPTIONS "Opt&ions...\aCtrl+P"
+#define MSG_FILEOPTIONS "Opt&ions...\aCtrl+Shift+P"
 #define MSG_FILEQUIT "E&xit\aAlt+F4"
 #define MSG_LECTMENU "Pla&yer"
 #define MSG_LECTPAUSE "&Play/pause\aC"

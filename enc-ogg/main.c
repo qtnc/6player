@@ -15,7 +15,7 @@ static int getCommandLine2 (char*, int) ;
 static void openOptionsDialog (HWND) ;
 
 static HINSTANCE hdll = NULL;
-static int quality = 4;
+static double quality = 4.0;
 
 #define FORMAT_FLAGS BASS_ENCODE_AUTOFREE;
 #define FORMAT_NAME "OGG Vorbis"
@@ -29,27 +29,27 @@ return 1;
 }
 
 static int getCommandLine (char* buf, int bufmax) {
-return snprintf(buf, bufmax, "oggenc.exe -Q -q %d -o \"%%f\" -t \"%%t\" -a \"%%a\" -l \"%%l\" --ignorelength -", quality);
+return snprintf(buf, bufmax, "oggenc.exe -Q -q %.3g -o \"%%f\" -t \"%%t\" -a \"%%a\" -l \"%%l\" --ignorelength -", quality);
 }
 
 static int getCommandLine2 (char* buf, int bufmax) {
-return snprintf(buf, bufmax, "oggenc.exe -r -B 16 -C 2 -R 44100 -Q -q %d -", quality);
+return snprintf(buf, bufmax, "oggenc.exe -r -B 16 -C 2 -R 44100 -Q -q %.3g -", quality);
 }
 
 static BOOL CALLBACK dlgproc (HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 if (msg==WM_INITDIALOG) {
 HWND hcb = GetDlgItem(hwnd,1001);
-for (int i=0; i<=10; i++) {
+for (int i=0; i<=40; i++) {
 char ch[10]={0};
-snprintf(ch, 9, "%d", i);
+snprintf(ch, 9, "%.3g", i/4.0);
 SendMessage(hcb, CB_ADDSTRING, 0, ch);
 }
-SendMessage(hcb, CB_SETCURSEL, quality, 0);
+SendMessage(hcb, CB_SETCURSEL, quality*4, 0);
 SetFocus(hcb);
 }
 else if (msg==WM_COMMAND) {
 switch(LOWORD(wp)) {
-case IDOK : quality = SendDlgItemMessage(hwnd,1001, CB_GETCURSEL, 0, 0);
+case IDOK : quality = SendDlgItemMessage(hwnd,1001, CB_GETCURSEL, 0, 0) /4.0;
 case IDCANCEL: EndDialog(hwnd,1);
 }}
 return FALSE;
@@ -64,7 +64,7 @@ switch(what){
 case PP_DEFEX: returnstatic(FORMAT_EXT+2);
 case PP_MIMETYPE: return ptr? strncpy(ptr, FORMAT_MIME, size) :0;
 case PP_ENC_QUALITY : return 0;
-case PP_CAST_HEADERS: snprintf(ptr, size, "ice-bitrate: Quality %d\r\n", quality); return ptr;
+case PP_CAST_HEADERS: snprintf(ptr, size, "ice-bitrate: Quality %.3g\r\n", quality); return ptr;
 case PP_ENC_FLAGS : return *(DWORD*)ptr |= FORMAT_FLAGS; 
 case PP_ENC_COMMANDLINE: return getCommandLine(ptr, size);
 case PP_ENC_CAST_COMMANDLINE : return getCommandLine2(ptr, size);
