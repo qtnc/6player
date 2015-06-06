@@ -206,7 +206,7 @@ DWORD bInitedDevices=0;
 int inDevice= -1, auxInDevice= -1, outDevice=1, previewDevice=1, feedbackDevice=1, auxInFeedbackDevice=1, jingleDevice=1;
 int deviceSwitchCount=0;
 int crossFade = -6000, fxTarget=1;
-bool curLoop = FALSE, curRandom = false, curReverse = FALSE, curIntroMode = FALSE;
+bool curLoop = FALSE, curRandom = false, curReverse = FALSE, curIntroMode = FALSE, curUniquePlay=false;
 double curVol = 0.35f, curRecVol=1.0f, curCastVol=1.0f, curRecCastVol=1.0f, curAuxInCastVol=1.0f, curAuxInVol=1.0f, curJingleVol=1.0f, curJingleCastVol=1.0f;
 double curSpeed = 1.0f;
 double curTransposition = 0;
@@ -367,6 +367,7 @@ curLoop = ini.get("play.loop", true);
 curRandom = ini.get("play.random", false);
 curReverse = ini.get("play.reverse", false);
 curIntroMode = ini.get("play.introMode", false);
+curUniquePlay = ini.get("play.unique", false);
 curVol = ini.get("play.volume", curVol);
 curRecVol = ini.get("play.recVolume", curRecVol);
 curJingleVol = ini.get("play.jingleVolume", curJingleVol);
@@ -541,6 +542,7 @@ CheckMenuItem(lect, IDM_RANDOM, MF_BYCOMMAND | (curRandom? MF_CHECKED : MF_UNCHE
 CheckMenuItem(lect, IDM_REVERSE, MF_BYCOMMAND | (curReverse? MF_CHECKED : MF_UNCHECKED));
 CheckMenuItem(lect, IDM_INTRO_MODE, MF_BYCOMMAND | (curIntroMode? MF_CHECKED : MF_UNCHECKED));
 CheckMenuItem(lect, IDM_CROSSFADE, MF_BYCOMMAND | (crossFade>0? MF_CHECKED : MF_UNCHECKED));
+CheckMenuItem(lect, IDM_UNIQUEPLAY, MF_BYCOMMAND | (curUniquePlay? MF_CHECKED : MF_UNCHECKED));
 CheckMenuRadioItem(GetSubMenu(effectsMenu,0), 0, 3, fxTarget -1, MF_BYPOSITION);
 
 SendMessage(tbVolume, TBM_SETRANGEMIN, FALSE, 0);
@@ -592,6 +594,7 @@ ini.put("play.loop", curLoop);
 ini.put("play.random", curRandom);
 ini.put("play.reverse", curReverse);
 ini.put("play.introMode", curIntroMode);
+ini.put("play.unique", curUniquePlay);
 ini.put("casting.autoAdjustMusic", curAutoAdjustCastMusic);
 ini.put("play.volume", curVol);
 ini.put("play.recVolume", curRecVol);
@@ -2221,7 +2224,13 @@ case 'M' :
 action(IDM_CROSSFADE);
 if (sayString) sayString(toTString(crossFade>0? (MSG_CROSSFADE_ON) : (MSG_CROSSFADE_OFF)).c_str(), TRUE);
 break;
-case 'O' :  action(IDM_RESET);  break;
+case 'O' :  
+if (shiftDown) {
+action(IDM_UNIQUEPLAY);
+sayString(curUniquePlay? MSG_UNIQUEPLAY_ON : MSG_UNIQUEPLAY_OFF, TRUE);
+}
+else action(IDM_RESET);  
+break;
 case VK_DELETE : delSongNum(curSong); break;
 case 'E' :  setEqualizerValueDelta(curHandle, 0, 0.5);  break;
 case 'R' : setEqualizerValueDelta(curHandle, 1, 0.5); break;
@@ -2289,6 +2298,10 @@ break;
 case IDM_CROSSFADE :
 crossFade *= -1;
 CheckMenuItem(lect, IDM_CROSSFADE, MF_BYCOMMAND | (crossFade>0? MF_CHECKED : MF_UNCHECKED));
+break;
+case IDM_UNIQUEPLAY :
+curUniquePlay = !curUniquePlay;
+CheckMenuItem(lect, IDM_UNIQUEPLAY, MF_BYCOMMAND | (curUniquePlay? MF_CHECKED : MF_UNCHECKED));
 break;
 case IDM_EFF_MODE1 :
 case IDM_EFF_MODE2 :
@@ -3344,6 +3357,7 @@ return;
 int state = BASS_ChannelIsActive(curHandle);
 if (state== BASS_ACTIVE_STOPPED) {
 if (BASS_ErrorGetCode()==BASS_ERROR_DEVICE) SendMessage(win, WM_USER+2000, 0, 0);
+else if (curUniquePlay) {}//#####
 else if (curLoop || crossFade<=0 || curStreamLen<30) { if (curReverse) prevSong(); else nextSong(); }
 ignoreUpdate=false;
 return;
