@@ -1691,7 +1691,7 @@ if (it.first.size()<=0) continue;
 SendMessage(hIn, CB_ADDSTRING, 0, toTString(it.first).c_str());
 SendMessage(hIn, CB_SETITEMDATA, ++j, it.second);
 SendMessage(hAuxIn, CB_ADDSTRING, 0, toTString(it.first).c_str());
-SendMessage(hAuxIn, CB_SETITEMDATA, ++j, it.second);
+SendMessage(hAuxIn, CB_SETITEMDATA, j, it.second);
 if (o->inDevice==it.second) SendMessage(hIn, CB_SETCURSEL, j, 0);
 if (o->auxInDevice==it.second) SendMessage(hAuxIn, CB_SETCURSEL, j, 0);
 }
@@ -2182,7 +2182,10 @@ case VK_LEFT : case 0x64 : seekSong(shiftDown? -30 : -5); break;
 case VK_NEXT : seekSong((shiftDown? 300 : 30)); break;
 case VK_PRIOR : seekSong(-(shiftDown? 300 : 30)); break;
 case 'X' : case 0xA8 : case 0x60 : playSong(TRUE); break;
-case 'C' : case ' ' : case 0xB3 : case 0xB2 : case 0xA9 : case 0x65 : pauseSong(); break;
+case 'C' : case ' ' : case 0xB3 : case 0xB2 : case 0xA9 : case 0x65 : 
+if (shiftDown) BASS_ChannelSlideAttribute(curHandle, BASS_ATTRIB_VOL, -1, 5000);
+else pauseSong(); 
+break;
 case 'V' : stopSong(false); break;
 case 'L' :  case VK_END : case 0xB0 : case 0xA7 : case 0x69 : nextSong(); break;
 case 'K' : case VK_HOME : case 0xB1 : case 0xA6 : case 0x67 : prevSong(); break;
@@ -2569,8 +2572,11 @@ return true;
 void startRecord () {
 if (curRecord) stopRecord();
 BASS_RecordInit(inDevice);
+printf("BASS_RecordInit error code: %d\r\n", BASS_ErrorGetCode());
 BASS_RecordSetDevice(inDevice);
+printf("BASS_RecordSetDevice(%d) error code: %d\r\n", inDevice, BASS_ErrorGetCode());
 inDevice = BASS_RecordGetDevice();
+printf("In device finally selected: %d\r\n", inDevice);
 setOutDevice(feedbackDevice);
 curFeedback = BASS_StreamCreate(44100, 2, BASS_SAMPLE_FLOAT, STREAMPROC_PUSH, NULL);
 if (curFeedback&&castNoFeedback&&curCasting>=0) BASS_ChannelSetAttribute(curFeedback, BASS_ATTRIB_VOL, 0);
@@ -2604,8 +2610,11 @@ curRecord = NULL;
 void startAuxIn () {
 if (curAuxIn) stopAuxIn();
 BASS_RecordInit(auxInDevice);
+printf("BASS_RecordInit error code: %d\r\n", BASS_ErrorGetCode());
 BASS_RecordSetDevice(auxInDevice);
+printf("BASS_RecordSetDevice(%d) error code: %d\r\n", auxInDevice, BASS_ErrorGetCode());
 auxInDevice = BASS_RecordGetDevice();
+printf("AuxIn device finally selected: %d\r\n", auxInDevice);
 setOutDevice(auxInFeedbackDevice);
 curAuxInFeedback = BASS_StreamCreate(44100, 2, BASS_SAMPLE_FLOAT, STREAMPROC_PUSH, NULL);
 if (curAuxInFeedback&&castNoAuxInFeedback&&curCasting>=0) BASS_ChannelSetAttribute(curAuxInFeedback, BASS_ATTRIB_VOL, 0);
@@ -3859,6 +3868,7 @@ BASS_ChannelSetAttribute(fx, BASS_ATTRIB_TEMPO, 100 * (curSpeed -1));
 BASS_ChannelSetAttribute(fx, BASS_ATTRIB_VOL, curVol);
 if (curMixHandle) {
 curCopyHandle = BASS_StreamCreateCopy(fx, BASS_SAMPLE_FLOAT | BASS_STREAM_DECODE, 0);
+BASS_ChannelSetAttribute(curCopyHandle, BASS_ATTRIB_VOL, curCastVol);
 BASS_Mixer_StreamAddChannel(curMixHandle, curCopyHandle, BASS_STREAM_AUTOFREE);
 }
 for (int i=0; i < 5; i++) {
