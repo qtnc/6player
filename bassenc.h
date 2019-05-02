@@ -1,6 +1,6 @@
 /*
 	BASSenc 2.4 C/C++ header file
-	Copyright (c) 2003-2014 Un4seen Developments Ltd.
+	Copyright (c) 2003-2016 Un4seen Developments Ltd.
 
 	See the BASSENC.CHM file for more detailed documentation
 */
@@ -43,6 +43,7 @@ typedef DWORD HENCODE;		// encoder handle
 #define BASS_ENCODE_FP_16BIT	4		// convert floating-point sample data to 16-bit integer
 #define BASS_ENCODE_FP_24BIT	6		// convert floating-point sample data to 24-bit integer
 #define BASS_ENCODE_FP_32BIT	8		// convert floating-point sample data to 32-bit integer
+#define BASS_ENCODE_FP_AUTO		14		// convert floating-point sample data back to channel's format
 #define BASS_ENCODE_BIGEND		16		// big-endian sample data
 #define BASS_ENCODE_PAUSE		32		// start encording paused
 #define BASS_ENCODE_PCM			64		// write PCM sample data (no encoder)
@@ -53,6 +54,7 @@ typedef DWORD HENCODE;		// encoder handle
 #define BASS_ENCODE_CAST_NOLIMIT 0x1000	// don't limit casting data rate
 #define BASS_ENCODE_LIMIT		0x2000	// limit data rate to real-time
 #define BASS_ENCODE_AIFF		0x4000	// send an AIFF header rather than WAV
+#define BASS_ENCODE_DITHER		0x8000	// apply dither when converting floating-point sample data to integer
 #define BASS_ENCODE_AUTOFREE	0x40000 // free the encoder when the channel is freed
 
 // BASS_Encode_GetACMFormat flags
@@ -130,6 +132,7 @@ user   : The 'user' parameter value given when calling BASS_Encode_SetNotify */
 
 // BASS_Encode_ServerInit flags
 #define BASS_ENCODE_SERVER_NOHTTP		1	// no HTTP headers
+#define BASS_ENCODE_SERVER_META			2	// Shoutcast metadata
 
 DWORD BASSENCDEF(BASS_Encode_GetVersion)();
 
